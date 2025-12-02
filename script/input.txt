@@ -1,0 +1,4766 @@
+模块一｜任务角色与输出目标
+你是一位资深短视频文案创作者，擅长为中文短剧生成高情绪张力、强带入感的剧情类解说词。
+本任务是基于提供的结构化剧情事件数据，生成适合 TikTok 爆款传播的剧情解说词文案。内容需基于用户上传的事件表字段。
+模块二｜输入源说明
+数据来源为1-10集的结构化事件池，包括镜头表，事件表，剧情，角色等信息。
+剧情概要：
+${txtContent}
+
+结构化数据（角色表、镜头、事件）：
+${jsonContent}
+每个事件包含以下字段：
+event_id：事件编号（如 "EVT-01"）
+segment_ids：包含的 seg_id 列表
+matched_dialogues：关键对白
+main_characters：事件主角
+target_characters：被针对或影响的角色（如有）
+emotion_curve：情绪变化过程
+event_summary：事件内容
+result_summary：事件结果
+location：事件场景
+keyword：关键词列表
+priority：事件等级（A =关键主线；B = 次要推动；C = 日常补充）
+每个片段包含以下字段
+seg_uid：序列号（如 "1"）
+ep_id：集数（如 "1"）
+segment_id：段落编号（如 "SEG-01"）
+start_time / end_time：时间段（如 "00:00:00.000"）
+included_shots：包含的镜头编号（如 ["SHOT-01", "SHOT-02"]）
+main_characters：该段主要角色（标准角色名）
+merged_dialogues：合并后的对白内容
+emotion_summary：该段情绪概括（如 "愤怒 → 哭泣"）
+location：场景名称（如 "古代庭院"）
+merge_reason：镜头合并原因
+segment_summary：一句话描述该段剧情
+模块三｜剪辑模版（按集推进）
+本任务围绕“第一集”进行内容组合，构建“追剧感”解说视频。
+默认以“第一集”为主事件池。，允许提取后续集数事件、片段进行延伸补充，但必须以当前集故事线为主导。
+❗请注意：
+请仅从 ep_id = "1" 的镜头片段（seg_uid）中抽取，用于视频组合。不要跨集引用其他 ep_id 的镜头或事件。
+每条视频基于 5–12 个片段视频（seg_uid）组合生成（3 个视频次序(seg_uid)不得连续重复），时长控制在 一分钟内内，适配 TikTok 用户节奏。
+模块四｜节奏结构逻辑
+可采用顺叙等方式讲述，但需保证情节清晰、情绪递增。
+不允许无逻辑跳接或断裂式组合，避免用户理解障碍。
+模块五｜文案风格与叙述语气（三段式结构）
+开头段：制造注意力抓手，抛出冲突或情绪爆点，引发好奇（3 秒勾子）。
+中间段：串联事件，推进情节发展，语言口语化、有节奏感。
+结尾段：制造悬念或反转，引导用户产生观看完整版的欲望。
+随机多种叙述风格（第一人称内心独白、第三人称旁观、冷幽默、情绪共鸣等）。
+强调真实感与非模板表达，避免格式化套话。
+模块六｜输出格式（字段规范、语种、可读性）
+请严格按照以下格式，生成10条完全不同的短剧解说方案。每条方案必须完整包含以下字段：
+格式模板如下（请务必逐项填写，字段不可缺漏）：
+方案编号（例如：方案1）
+剧名：《剧名示例》
+中文解说词： 不包含原始对白，需为完整中文解说内容
+（开头）……
+（中段）……
+（结尾）……
+英文翻译：  中文内容的语义等效翻译
+（开头）……
+（中段）……
+（结尾）……
+视频所用片段：以字符串格式输出,以下仅举例生成格式，以实际生成为主。字段如下：
+segUid：片段编号字符串，使用 + 连接，如 "90+84+95"
+time：各片段时长字符串，单位为秒，使用逗号分隔，如 "30秒,20秒,25秒"
+请注意，这两个字段必须是字符串（string），不能是数组、不能是数字列表，必须符合 JSON 字符串格式。
+视频组合逻辑：…… 视频选择的组合逻辑及视频节奏情绪
+视频组合的内容：输出每段视频的概要，输出格式为:(片段编号segUid)当前片段编号概要+(片段编号segUid)当前片段编号概要。使用+连接视频所用片段
+视频组合的情绪：展示视频的情绪节奏
+中文解说词总字数：解说词总字数，建议 150字 字
+视频总时长：对应合并后的事件片段总秒数，对应镜头表中各个镜头的start_time和end_time，两个相差时间为单个镜头时长
+要求如下：
+1. 每条方案内容必须完整填满以上模板。
+所有字段必须逐项完整填写，严禁出现 null、略写、省略字段的情况。
+2.每条视频一行,共输出 10 条完全不同方案（含解说内容、事件组合、视频节奏均不同）
+
+每条方案之间以换行分隔，格式如下：
+（以下为固定字段顺序与格式，请照此逐条填写）
+
+⚠️ 请注意：本任务要求模型每条方案必须严格按照以下字段输出，**不得浓缩、不得合并**，**不得以“篇幅限制”“略写”等理由省略任何一条方案。
+
+如果模型一次输出长度不足，请自动补续，直至补齐方案10。如已完整输出 10 条，不得再次输出。
+禁止重复生成方案、禁止重新补写，必须仅输出 10 条！
+
+禁止输出如下内容：
+- 不得使用“以下为部分展示”“仅列核心信息”等描述
+- 不得出现“方案1-3为完整，其余略写”的格式
+- 不得嵌入 markdown 代码块（```txt）
+
+请将每个方案封装成一个 JSON 对象，所有方案组成 JSON 数组格式输出，字段包括：
+- planNumber
+- title
+- chineseNarration: {begin, middle, end}
+- translation: {begin, middle, end}
+- usedSegment: {segUid, time}
+- combinationLogic
+- combinationContent
+- combinationEmotion
+- chineseWordCount
+- videoDurationSeconds
+⚠️ 注意：输出内容必须严格符合 JSON 语法标准，所有字段必须使用英文双引号，值为字符串时也必须用英文双引号括起来，不能使用中文引号或省略引号！
+如：
+{
+  "planNumber": "方案1",
+  "title": "剧集标题",
+  "chineseNarration": {
+    "begin": "开头段解说词",
+    "middle": "中间段解说词",
+    "end": "结尾段解说词"
+  },
+  "translation": {
+    "begin": "对应外语翻译",
+    "middle": "对应外语翻译",
+    "end": "对应外语翻译"
+  },
+  "usedSegment": {
+    "segUid": "片段编号组合，如 '1+3+7'",
+    "time": "各片段时长拼接，字符串格式，如 '30秒,20秒,35秒'"
+  },
+  "combinationLogic": "片段选择与顺序组合逻辑说明",
+  "combinationContent": "每段片段概括说明，突出承接与推进关系",
+  "combinationEmotion": "整体情绪起伏过程，如 '压抑→惊讶→痛快'",
+  "chineseWordCount": 85,
+  "videoDurationSeconds": 85
+}
+Creating a new SqlSession
+SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2419435f] was not registered for synchronization because synchronization is not active
+JDBC Connection [com.alibaba.druid.proxy.jdbc.ConnectionProxyImpl@674d4aaf] will not be managed by Spring
+==>  Preparing: select id, film_name, cover, event_table, role_table, fragment_table, material_pack, language, create_id, create_by, create_time, update_id, update_by, update_time, is_delete, role_id , summary, summary_text, film_character, event_table_text, role_table_text, fragment_table_text, film_library, cut_word, brief_introduction from sys_film_library where id = ?
+==> Parameters: 1(Integer)
+<==    Columns: id, film_name, cover, event_table, role_table, fragment_table, material_pack, language, create_id, create_by, create_time, update_id, update_by, update_time, is_delete, role_id, summary, summary_text, film_character, event_table_text, role_table_text, fragment_table_text, film_library, cut_word, brief_introduction
+<==        Row: 1, 测试, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, <<BLOB>>, <<BLOB>>, <<BLOB>>, <<BLOB>>, <<BLOB>>, <<BLOB>>, <<BLOB>>, <<BLOB>>, <<BLOB>>
+<==      Total: 1
+Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@2419435f]
+Creating a new SqlSession
+SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@109f6b33] was not registered for synchronization because synchronization is not active
+JDBC Connection [com.alibaba.druid.proxy.jdbc.ConnectionProxyImpl@674d4aaf] will not be managed by Spring
+==>  Preparing: insert into sys_generate_scheme_manage ( film_id, film_name, user_id, create_time, language ) values ( ?, ?, ?, ?, ? )
+==> Parameters: 1(Integer), 测试(String), 1(Integer), 2025-08-11 17:26:41.034(Timestamp), 英文(String)
+<==    Updates: 1
+==>  Preparing: SELECT LAST_INSERT_ID()
+==> Parameters:
+<==    Columns: LAST_INSERT_ID()
+<==        Row: 74
+<==      Total: 1
+Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@109f6b33]
+开始生成时间：2025-08-11T17:26:41.040
+模块一｜任务角色与输出目标
+你是一位资深短视频文案创作者，擅长为中文短剧生成高情绪张力、强带入感的剧情类解说词。
+本任务是基于提供的结构化剧情事件数据，生成适合 TikTok 爆款传播的剧情解说词文案。内容需基于用户上传的事件表字段。
+模块二｜输入源说明
+数据来源为1-10集的结构化事件池，包括镜头表，事件表，剧情，角色等信息。
+剧情概要：
+第1集：一位隐姓埋名的女子“小姐”（真实身份为“秋韵”）三年来为相公操持家务，隐藏身手不凡的身份，只为助他功成名就。她的随从叶无涯前来催促她回府，透露其父楚相为避朝廷纷争将她嫁入杨家，并为怕她夫君自卑而隐藏身份。如今，楚相已安排圣上钦点其相公杨明功为新科状元，圣旨三日后将至青州。小姐最初不愿回京，但在叶无涯的劝说下，深感父亲苦心，决定不再怄气。她兴奋地借叶无涯的马赶回，并告知他已安排好三日后以“天下第一才女秋韵”的身份，在迎凤楼设宴招待新科状元，届时将亲自向相公杨明功表明真实身份。
+第2集：故事发生在繁华的青州城，太子殿下与随从在街头偶遇一场意外：一位名为楚月瑶的女子因骑马生疏险些撞到殿下，尽管随从出言指责，殿下却展现出宽容大度，反而对楚月瑶的飒爽风姿心生欣赏，而楚月瑶也豪爽地以马匹相赠作为赔偿。与此同时，新科状元明哥哥正与其未婚妻静柔谈论前程，静柔骄纵地炫耀自己为他打点关系，并要求明哥哥为前途抛弃现有伴侣“野妇”，明哥哥为了静柔父亲的权势竟欣然同意，展现出赤裸裸的功利主义。
+第3集：楚月瑶回府撞见丈夫杨明与青州知府千金袁小姐私会，正当她震惊悲痛之际，袁小姐与杨明却嚣张跋扈地揭露真相——杨明已高中新科状元，嫌弃楚月瑶是“乡野村妇”配不上他，欲将其休弃以攀附袁家。面对杨明递来的休书，楚月瑶虽被背叛，却在绝望中显露出不凡的底气，一句“区区青州知府，我还不放在眼里”预示着她隐藏的强大身份即将浮出水面，为接下来的剧情冲突埋下伏笔。
+第4集：贤妻楚月瑶资助丈夫杨明功寒窗苦读并助其家族崛起，不料杨明功高中状元后即忘恩负义欲休妻，并与青州知府袁帆之女袁小姐勾结，袁小姐嚣张揭露杨明功的状元系其父舞弊钦点，更提及“天下第一才女”秋韵姑娘将设宴款待，然而楚月瑶却在被羞辱后霸气反击，不仅自称“天下第一才女”反休夫，更誓要揭露科举舞弊，让杨明功的状元梦碎。
+第5集：短剧开篇，袁静柔与丈夫杨明功爆发激烈冲突，杨明功污蔑袁静柔“勾引人夫”并欲借“知府大人”之名将其押入大牢，袁静柔则反击揭露杨明功“沉迷女色”并将其打倒在地，展现出刚烈一面。危急关头，一位“公子”现身搭救袁静柔，两人似有旧识，引得杨明功恼羞成怒，当众诬陷袁静柔“偷汉子”并扬言休妻，不明真相的围观群众随即被煽动，纷纷指责袁静柔“水性杨花”、“不知廉耻”，使袁静柔陷入舆论困境，剧情在围观者的声讨中推向高潮，暗示了袁静柔接下来将面临的挑战和潜在的反击。
+第6集：一个恶毒女子（正妻）对其“丈夫”及一位被她称为“臭叫花子”的男子恶语相向，指责他们是“绝配”。然而，一位侍卫突然出现，严厉呵斥该女子侮辱逍遥王是死罪，揭示了“臭叫花子”的真实身份可能是逍遥王。女子震惊之余，仍不愿相信，继续嘲讽男子是装模作样，并诬陷男子冒充逍遥王，另一位女子（才女）冒充天下第一才女，命令手下将两人抓捕交给知府发落。面对困境，逍遥王向才女表达歉意，而才女则淡定回应“无妨”。最终，逍遥王气势转变，霸气宣言“谁敢动我”，与此同时，侍卫的言语也让在场之人对逍遥王的真实身份开始动摇和怀疑。
+第7集：在杨府，杨老夫人向袁大人行贿，以确保儿子杨明功能稳坐新科状元之位，并促成杨明功与袁大人之女静柔的婚事。两人阴谋合伙，计划将杨明功的原配妻子、被他们贬低为“乡野妇人”的楚月瑶扫地出门，誓言不让她踏进杨家半步。就在他们的贪婪和算计达到顶峰之时，突如其来的急报打破了平静——杨明功竟与高贵的逍遥王在杨家起了冲突。消息的揭露不仅让杨老夫人惊慌失措，更暗示了楚月瑶与逍遥王之间不为人知的紧密联系，预示着一场围绕权力、财富和身份的斗争即将全面爆发，而楚月瑶的真实身份和她与逍遥王的关系，将成为扭转局势的关键。
+第8集：在杨家府邸，新科状元杨明与未婚妻静柔联手羞辱被他休弃的前未婚妻楚月瑶，杨明傲慢地用银两打发楚月瑶，并炫耀他即将到来的婚姻、光明仕途和与知府大人的关系，强调双方身份地位的“天壤之别”，而静柔则在一旁附和嘲讽楚月瑶为“乡野妇人”并患上“失心疯”。面对羞辱，楚月瑶不仅拒绝了银两，更以其人之道还治其人之身，反击自己财富远胜杨明所给，并意味深长地预言“三日后”，杨明的荣华富贵也将与他无关，暗示着一场即将到来的逆转。
+第9集：在杨家，杨明功的妻子楚月瑶突然变得强势，不仅嘲讽知府小姐袁千金有眼无珠，更在婆婆杨母现身后，霸气回击其对“偷人”和未生子嗣的恶毒指责，并与新出现的男性伴侣一同离去；杨母则联合袁千金，愤怒指责楚月瑶不守妇道，并以“三年无子”为由，要求楚月瑶偿还她在杨家的一切费用，暗示将其逐出门，一场关乎身份、生育与家庭尊严的激烈冲突全面爆发。
+第10集：杨家老夫人因儿媳楚月瑶被指控“偷情”且“无后”，在杨家院内大肆喧哗，召集围观群众欲将其扫地出门甚至“浸猪笼”，并对其子杨明庇护儿媳的行为不满；面对指责，楚月瑶愤怒反击，当众揭露了杨明三年来实则双腿残疾、无法站立的惊天秘密，令杨明母子及其爱慕者李小姐震惊且恼羞成怒，试图对楚月瑶施以暴力；就在楚月瑶身陷险境之际，逍遥王携侍卫及大批将士霸气现身，强势介入，阻止了杨家的行径，救下楚月瑶，剧情的高潮也由此拉开序幕。
+
+
+结构化数据（角色表、镜头、事件）：
+【镜头表 seg_all.json】
+[
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:19.400",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03"
+    ],
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "merged_dialogues": "相公我为你隐藏身份，操持家务，只希望祝你早日出人头地，功成名就。",
+    "emotion_summary": "平静 → 专注 → 温柔，支持",
+    "location": "田地",
+    "merge_reason": "描绘楚月瑶在乡村的日常及她对丈夫的默默付出，情绪和场景连续。",
+    "segment_summary": "楚月瑶在田地里辛勤耕作，内心独白表达了为丈夫隐藏身份和努力付出的决心。",
+    "episode": "1",
+    "seg_uid": "1"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:19.400",
+    "end_time": "00:00:36.700",
+    "included_shots": [
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "叶无涯"
+    ],
+    "merged_dialogues": "",
+    "emotion_summary": "平静 → 警惕 → 紧张",
+    "location": "田地，山路",
+    "merge_reason": "叶无涯的突然出现及射箭试探，气氛紧张，行动连续。",
+    "segment_summary": "叶无涯骑马而来，突然拉弓搭箭射向正在耕作的楚月瑶。",
+    "episode": "1",
+    "seg_uid": "2"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:36.700",
+    "end_time": "00:00:46.900",
+    "included_shots": [
+      "SHOT-07"
+    ],
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "merged_dialogues": "",
+    "emotion_summary": "惊诧 → 强大 → 自信",
+    "location": "田地",
+    "merge_reason": "楚月瑶徒手接箭，展现其隐藏的强大身份和能力，情绪集中。",
+    "segment_summary": "楚月瑶以超凡身手徒手接住飞箭，并帅气地将其折断，展现了其不凡的功力。",
+    "episode": "1",
+    "seg_uid": "3"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:46.900",
+    "end_time": "00:00:58.320",
+    "included_shots": [
+      "SHOT-08",
+      "SHOT-09"
+    ],
+    "main_characters": [
+      "叶无涯",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "想不到小姐种地三年，功力丝毫没有退步。驾。小姐。",
+    "emotion_summary": "惊讶，赞叹 → 不耐，焦急",
+    "location": "田地，山路",
+    "merge_reason": "叶无涯对楚月瑶能力的赞叹及楚月瑶不愿被打扰的表现，对话和行动连续。",
+    "segment_summary": "叶无涯对楚月瑶的功力表示赞叹，楚月瑶却不耐烦地试图离开，叶无涯焦急追赶。",
+    "episode": "1",
+    "seg_uid": "4"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:58.320",
+    "end_time": "00:01:14.280",
+    "included_shots": [
+      "SHOT-10",
+      "SHOT-11"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "叶无涯"
+    ],
+    "merged_dialogues": "你这个人怎么这么难缠？小姐你要是再不回去，楚相一定会宰了我的。小姐，你就别再为难我了。好你个叶无涯，居然敢挡我的路，你信不信，回去我就撤你的职。属下不敢，属下不敢。",
+    "emotion_summary": "生气 → 无奈 → 不悦，威胁 → 顺从",
+    "location": "田地，山路",
+    "merge_reason": "楚月瑶对叶无涯的恼怒与叶无涯的无奈解释，对话持续，情绪递进。",
+    "segment_summary": "楚月瑶对叶无涯的纠缠感到愤怒并威胁撤职，叶无涯无奈地解释是奉楚相之命前来催促。",
+    "episode": "1",
+    "seg_uid": "5"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-06",
+    "start_time": "00:01:14.280",
+    "end_time": "00:01:31.680",
+    "included_shots": [
+      "SHOT-12",
+      "SHOT-13"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "叶无涯"
+    ],
+    "merged_dialogues": "那你还不让开。小姐，当初楚相为了让你躲避朝廷纷争，将您嫁入了杨家。这么多年，您一直害怕杨公子自卑，不敢表露身份。如今，楚相已经让圣上钦点了您相公杨明功为本届的新科状元。圣旨三日后就到青州。不是说了吗？小姐。",
+    "emotion_summary": "强硬 → 劝说 → 惊讶 → 质疑",
+    "location": "田地，山路",
+    "merge_reason": "叶无涯揭示楚相的真实意图及杨明功高中状元的消息，关键信息揭露，对话连续。",
+    "segment_summary": "叶无涯详细解释楚相为保护楚月瑶而将其嫁入杨家的原因，并告知杨明功已被钦点为新科状元的消息。",
+    "episode": "1",
+    "seg_uid": "6"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:31.680",
+    "end_time": "00:01:49.640",
+    "included_shots": [
+      "SHOT-14",
+      "SHOT-15",
+      "SHOT-16",
+      "SHOT-17"
+    ],
+    "main_characters": [
+      "叶无涯",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "楚相这也是过于思念你，想让你早点回去同他团聚，你就别怄气了。父亲，都是女儿不好。既是如此，你回去复命吧。父亲如此为我着想，我要是再不领情，倒是辜负了他的一片苦心。",
+    "emotion_summary": "劝慰 → 理解 → 愧疚 → 自责 → 接受 → 平静 → 感恩 → 坚定",
+    "location": "田地",
+    "merge_reason": "楚月瑶在叶无涯劝说下情绪转变，理解父亲苦心并决定回京，情绪和剧情递进。",
+    "segment_summary": "叶无涯以楚相思念为由劝说楚月瑶，楚月瑶深感愧疚，并最终决定不再怄气，接受父亲的好意。",
+    "episode": "1",
+    "seg_uid": "7"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:50.280",
+    "end_time": "00:02:04.760",
+    "included_shots": [
+      "SHOT-18",
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21"
+    ],
+    "main_characters": [
+      "叶无涯",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "好嘞，好嘞。相公你等着，我这就回来给你报喜。小姐。借用你的马没问题吧。没问题没问题，您需要什么随时吩咐。",
+    "emotion_summary": "高兴，放松 → 自信，期待 → 好奇，询问 → 殷勤，热情",
+    "location": "田地",
+    "merge_reason": "楚月瑶决定立即返回并向丈夫报喜，借马情节推动行动，情绪积极。",
+    "segment_summary": "楚月瑶兴奋地向空中喊话要回府向丈夫报喜，并直接借走叶无涯的马匹。",
+    "episode": "1",
+    "seg_uid": "8"
+  },
+  {
+    "ep_id": "1",
+    "segment_id": "SEG-09",
+    "start_time": "00:02:05.480",
+    "end_time": "00:02:25.000",
+    "included_shots": [
+      "SHOT-22",
+      "SHOT-23",
+      "SHOT-24"
+    ],
+    "main_characters": [
+      "叶无涯",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "对了，我已经帮您放出话去。什么话？三日后，您将以天下第一才女秋韵的身份，在迎凤楼设宴，招待新科状元。行，届时我要和相公亲自表明我的身份。驾。小姐，小姐。",
+    "emotion_summary": "告知，期待 → 惊讶 → 决心，自信 → 兴奋，目送",
+    "location": "田地，山路",
+    "merge_reason": "叶无涯告知设宴安排，楚月瑶确定了公开身份的计划，并骑马离去，剧情推进。",
+    "segment_summary": "叶无涯告知已放出天下第一才女秋韵将设宴招待新科状元的消息，楚月瑶确定届时将亲自向夫君表明身份，随后驾马离开。",
+    "episode": "1",
+    "seg_uid": "9"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:14.240",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03"
+    ],
+    "main_characters": [
+      "顾渊",
+      "小恒"
+    ],
+    "merged_dialogues": "瞧一瞧，冰糖葫芦，这给我来两个吧，看看，都是新鲜的，来来来，你快看看",
+    "emotion_summary": "好奇 → 轻松愉悦 → 平静",
+    "location": "集市",
+    "merge_reason": "顾渊与小恒在集市中悠闲漫步，欣赏繁华景象并购买小吃，情绪连贯。",
+    "segment_summary": "顾渊和小恒在青州城集市中悠闲漫步，欣赏繁华景象并购买小吃。",
+    "episode": "2",
+    "seg_uid": "10"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:14.240",
+    "end_time": "00:00:23.800",
+    "included_shots": [
+      "SHOT-04"
+    ],
+    "main_characters": [
+      "顾渊",
+      "小恒"
+    ],
+    "merged_dialogues": "这青州城果然如此繁华，怪不得天下第一才女，秋韵姑娘会在此露面，只是不知道",
+    "emotion_summary": "惊喜，期待",
+    "location": "集市",
+    "merge_reason": "顾渊对青州城的繁华发出感叹，并提及天下第一才女秋韵，单独的思绪表达。",
+    "segment_summary": "顾渊赞叹青州城繁华，并提及“天下第一才女秋韵姑娘”将在此露面。",
+    "episode": "2",
+    "seg_uid": "11"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:23.800",
+    "end_time": "00:00:41.200",
+    "included_shots": [
+      "SHOT-05",
+      "SHOT-06",
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10"
+    ],
+    "main_characters": [
+      "顾渊",
+      "楚月瑶",
+      "小恒"
+    ],
+    "merged_dialogues": "小心,快闪开快闪开",
+    "emotion_summary": "紧张 → 焦急 → 惊讶 → 惊恐 → 惊慌",
+    "location": "集市",
+    "merge_reason": "一系列镜头共同描绘了楚月瑶骑马失控并险些撞到顾渊的完整事件，情绪和动作连贯。",
+    "segment_summary": "楚月瑶骑马失控，险些撞到顾渊和小恒，顾渊的鼻子因此流血。",
+    "episode": "2",
+    "seg_uid": "12"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:41.200",
+    "end_time": "00:00:52.840",
+    "included_shots": [
+      "SHOT-11",
+      "SHOT-12"
+    ],
+    "main_characters": [
+      "顾渊",
+      "小恒"
+    ],
+    "merged_dialogues": "多危险啊，就是，这姑娘好美，好飒,殿下你没事吧，没事",
+    "emotion_summary": "惊讶 → 赞叹 → 关心 → 平静",
+    "location": "集市",
+    "merge_reason": "顾渊从惊吓中恢复，转而对楚月瑶的美貌和英姿表示赞叹，小恒也上前关心顾渊伤势，情绪连贯。",
+    "segment_summary": "顾渊鼻子流血，小恒关心其伤势，顾渊却对楚月瑶的美貌和飒爽赞叹不已。",
+    "episode": "2",
+    "seg_uid": "13"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:52.840",
+    "end_time": "00:01:05.920",
+    "included_shots": [
+      "SHOT-13",
+      "SHOT-14"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "顾渊"
+    ],
+    "merged_dialogues": "抱歉啊，我好长时间没骑马了，有些生疏了，你没事吧,关键人还这么善良，好飒",
+    "emotion_summary": "歉意 → 担忧 → 欣赏 → 被吸引",
+    "location": "集市",
+    "merge_reason": "楚月瑶主动向顾渊道歉并询问伤势，顾渊被其善良和英姿吸引，两人互动和情绪连贯。",
+    "segment_summary": "楚月瑶向顾渊道歉并询问伤势，顾渊被其善良和飒爽所吸引。",
+    "episode": "2",
+    "seg_uid": "14"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-06",
+    "start_time": "00:01:05.920",
+    "end_time": "00:01:16.800",
+    "included_shots": [
+      "SHOT-15",
+      "SHOT-16",
+      "SHOT-17"
+    ],
+    "main_characters": [
+      "小恒",
+      "顾渊"
+    ],
+    "merged_dialogues": "生疏你骑什么马呀，给人血都撞出来了，你知道撞的，这可是，无妨,这位姑娘想必是有急事，让她先走吧,我告诉你",
+    "emotion_summary": "不满 → 愤怒 → 理解 → 宽容 → 不甘",
+    "location": "集市",
+    "merge_reason": "小恒对楚月瑶的鲁莽行为表示不满和指责，顾渊则展现宽容并为其解围，对话和情绪连贯。",
+    "segment_summary": "小恒不满楚月瑶的冒失行为，顾渊却宽容地替其解围，示意小恒让她先离开。",
+    "episode": "2",
+    "seg_uid": "15"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:16.800",
+    "end_time": "00:01:35.200",
+    "included_shots": [
+      "SHOT-18",
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "顾渊",
+      "小恒"
+    ],
+    "merged_dialogues": "还是这位公子明事理，不过我楚月瑶,也不是不讲道理的人，这匹马，送你了,楚月瑶好一个奇女子",
+    "emotion_summary": "平静 → 赞赏 → 大方 → 自信 → 惊叹 → 赞许",
+    "location": "集市",
+    "merge_reason": "楚月瑶对顾渊的宽容举动作出回应，大方地以马相赠，顾渊对此感到惊叹，形成一个完整的互动和情绪发展。",
+    "segment_summary": "楚月瑶赞赏顾渊的明事理，将马匹相赠作为赔偿，顾渊对她的豪爽和飒爽赞叹不已。",
+    "episode": "2",
+    "seg_uid": "16"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:35.200",
+    "end_time": "00:01:46.120",
+    "included_shots": [
+      "SHOT-22",
+      "SHOT-23",
+      "SHOT-24"
+    ],
+    "main_characters": [
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "什么，我是本届的新科状元，静柔,你说的可是真的,当然是真的",
+    "emotion_summary": "震惊 → 惊喜 → 难以置信 → 得意 → 喜悦",
+    "location": "室内",
+    "merge_reason": "杨明功从袁静柔口中得知自己高中状元，从震惊到确认，情绪递进，对话连续。",
+    "segment_summary": "杨明功从袁静柔口中得知自己高中新科状元，感到震惊与惊喜。",
+    "episode": "2",
+    "seg_uid": "17"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-09",
+    "start_time": "00:01:46.120",
+    "end_time": "00:02:02.120",
+    "included_shots": [
+      "SHOT-25",
+      "SHOT-26"
+    ],
+    "main_characters": [
+      "袁静柔",
+      "杨明功"
+    ],
+    "merged_dialogues": "明哥哥你放心吧，那可是我爹，亲自去打点的关系，还能有假",
+    "emotion_summary": "喜悦 → 兴奋 → 自信 → 得意",
+    "location": "室内",
+    "merge_reason": "袁静柔骄傲地向杨明功炫耀其父为其打点状元身份，杨明功听后欣喜，情绪和对话连贯。",
+    "segment_summary": "袁静柔向杨明功炫耀是她父亲打点关系才让他高中状元，杨明功听后欣喜。",
+    "episode": "2",
+    "seg_uid": "18"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-10",
+    "start_time": "00:02:02.120",
+    "end_time": "00:02:18.720",
+    "included_shots": [
+      "SHOT-27",
+      "SHOT-28"
+    ],
+    "main_characters": [
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "我可是听说了，天下第一才女，秋韵姑娘，要在迎凤楼，亲自设宴款待你，你可不能，静柔",
+    "emotion_summary": "兴奋 → 期待 → 提醒 → 暗示",
+    "location": "室内",
+    "merge_reason": "杨明功对状元身份的兴奋，以及袁静柔提出“天下第一才女”设宴款待状元之事，为后续关键对话做铺垫，情绪自然过渡。",
+    "segment_summary": "袁静柔提及天下第一才女秋韵将设宴款待杨明功，并暗示他需要做出选择。",
+    "episode": "2",
+    "seg_uid": "19"
+  },
+  {
+    "ep_id": "2",
+    "segment_id": "SEG-11",
+    "start_time": "00:02:18.720",
+    "end_time": "00:02:34.280",
+    "included_shots": [
+      "SHOT-29"
+    ],
+    "main_characters": [
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "你放心，我的心里啊只有你，只要你好好对我，我父亲定然，不会亏待你的，等圣旨一到呀，我就立马休了，那野妇，同你成亲",
+    "emotion_summary": "深情 → 虚伪 → 算计",
+    "location": "室内",
+    "merge_reason": "杨明功在此段中明确表示为前途将休妻，是重要的剧情转折和人物关系冲突点，情绪和对白高度集中。",
+    "segment_summary": "杨明功为攀附袁家权势，向袁静柔承诺等圣旨一到，就休掉现任妻子并与她成亲。",
+    "episode": "2",
+    "seg_uid": "20"
+  },
+  {
+    "ep_id": "3",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:11.360",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03",
+      "SHOT-04",
+      "SHOT-05"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明",
+      "袁小姐"
+    ],
+    "merged_dialogues": "相公我回你们这是你… 你怎么现在就回来了你是谁",
+    "emotion_summary": "喜悦、期待 → 震惊、困惑 → 惊恐、慌乱 → 质疑、受伤",
+    "location": "室内",
+    "merge_reason": "楚月瑶归家，撞见丈夫与陌生女子，双方初次对话，情绪和场景连续，角色主体一致。",
+    "segment_summary": "楚月瑶喜悦归家，却意外撞见丈夫杨明与陌生女子（袁小姐）在一起，她的喜悦瞬间凝固，转为震惊与困惑，杨明则显得惊慌失措。",
+    "episode": "3",
+    "seg_uid": "21"
+  },
+  {
+    "ep_id": "3",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:11.360",
+    "end_time": "00:00:29.000",
+    "included_shots": [
+      "SHOT-06",
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10",
+      "SHOT-11",
+      "SHOT-12"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明",
+      "袁小姐"
+    ],
+    "merged_dialogues": "为何要同我相公做这般见不得人的勾当住口袁小姐乃青州知府袁大人的千金岂是你一个乡野妇人能够议论的青州知府",
+    "emotion_summary": "不屑、挑衅 → 愤怒、阻止 → 傲慢、得意 → 震惊、委屈 → 压抑、受伤",
+    "location": "室内",
+    "merge_reason": "袁小姐对楚月瑶挑衅并揭露身份，杨明自豪地介绍袁小姐，楚月瑶在此过程中遭受言语羞辱并压抑受伤，情绪和场景连续。",
+    "segment_summary": "袁小姐挑衅楚月瑶并炫耀其知府千金身份，杨明虽试图阻止袁小姐却又强调她的高贵，楚月瑶在震惊与委屈中承受着被贬为“乡野妇人”的羞辱。",
+    "episode": "3",
+    "seg_uid": "22"
+  },
+  {
+    "ep_id": "3",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:29.000",
+    "end_time": "00:00:35.520",
+    "included_shots": [
+      "SHOT-13",
+      "SHOT-14",
+      "SHOT-15"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明",
+      "袁小姐"
+    ],
+    "merged_dialogues": "区区青州知府我还不放在眼里你要干什么",
+    "emotion_summary": "压抑、受伤 → 愤怒、轻蔑 → 惊慌、惊恐",
+    "location": "室内",
+    "merge_reason": "楚月瑶在受到屈辱后，情绪爆发，霸气回怼并试图行动，使得杨明和袁小姐惊慌失措，情绪和场景连续。",
+    "segment_summary": "楚月瑶在遭受羞辱后，突然爆发怒火，霸气宣言“区区青州知府，我还不放在眼里”，并走向袁小姐，令杨明和袁小姐陷入惊慌。",
+    "episode": "3",
+    "seg_uid": "23"
+  },
+  {
+    "ep_id": "3",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:35.520",
+    "end_time": "00:00:48.600",
+    "included_shots": [
+      "SHOT-16",
+      "SHOT-17",
+      "SHOT-18",
+      "SHOT-19"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明",
+      "袁小姐"
+    ],
+    "merged_dialogues": "明哥哥 事到如今了，你就别再瞒着这个蠢妇了相公她说这话是什么意思",
+    "emotion_summary": "挑衅、得意 → 轻蔑、得意 → 困惑、受伤、期待",
+    "location": "室内",
+    "merge_reason": "袁小姐进一步挑衅，催促杨明坦白，杨明默认，楚月瑶仍困惑不解，寻求真相，情绪和场景连续。",
+    "segment_summary": "袁小姐继续挑唆，催促杨明向楚月瑶摊牌，杨明露出轻蔑的笑容，而楚月瑶则满怀困惑和一丝期待，追问杨明话中深意。",
+    "episode": "3",
+    "seg_uid": "24"
+  },
+  {
+    "ep_id": "3",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:48.600",
+    "end_time": "00:01:02.160",
+    "included_shots": [
+      "SHOT-20",
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23",
+      "SHOT-24",
+      "SHOT-25",
+      "SHOT-26"
+    ],
+    "main_characters": [
+      "杨明",
+      "楚月瑶",
+      "袁小姐"
+    ],
+    "merged_dialogues": "楚月瑶既然你已经看见了，那我也就不瞒你了如今我已是本届的新科状元而你只不过是个乡野村妇你已经配不上我了",
+    "emotion_summary": "平静、摊牌、得意 → 紧张、期待 → 得意、傲慢 → 轻蔑 → 震惊、受伤 → 厌恶、决绝",
+    "location": "室内",
+    "merge_reason": "杨明正式向楚月瑶摊牌，宣布自己已高中状元，并以此为由彻底羞辱楚月瑶，将其贬为“乡野村妇”，宣告她已不配，情节发展和情绪连续。",
+    "segment_summary": "杨明向楚月瑶摊牌，得意洋洋地宣布自己已高中状元，并残忍地羞辱楚月瑶为“乡野村妇”，声称她已配不上他，令楚月瑶震惊受伤。",
+    "episode": "3",
+    "seg_uid": "25"
+  },
+  {
+    "ep_id": "3",
+    "segment_id": "SEG-06",
+    "start_time": "00:01:02.160",
+    "end_time": "00:01:19.460",
+    "included_shots": [
+      "SHOT-27",
+      "SHOT-28",
+      "SHOT-29",
+      "SHOT-30",
+      "SHOT-31",
+      "SHOT-32",
+      "SHOT-33",
+      "SHOT-34"
+    ],
+    "main_characters": [
+      "杨明",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "拿上休书离开杨家你要休我对你没听错我要休了你",
+    "emotion_summary": "得意、不耐烦 → 厌恶、决绝、命令 → 震惊、难以置信、悲伤 → 肯定、无情",
+    "location": "室内",
+    "merge_reason": "杨明掏出休书，决绝地命令楚月瑶离开，楚月瑶震惊悲痛，杨明再次确认休妻的冷酷情节，情绪和场景连续。",
+    "segment_summary": "杨明毫不留情地将休书扔给楚月瑶，命令她离开杨家，楚月瑶在震惊与悲痛中难以置信，杨明则得意而决绝地确认了休妻的决定。",
+    "episode": "3",
+    "seg_uid": "26"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:17.100",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "好啊 好。枉我三年来种地 卖菜供你寒窗苦读 如今你却是要休了我。不然呢 一个臭种地的 还妄想跟现今的 状元郎在一起 可真是痴心妄想",
+    "emotion_summary": "紧张→坚定→委屈→控诉→悲愤→傲慢→嘲讽→受辱→愤怒",
+    "location": "传统中式房间",
+    "merge_reason": "镜头时间连续，场景和角色一致，情绪和对话连贯，表现楚月瑶初始的悲愤与杨明功、袁静柔的嘲讽。",
+    "segment_summary": "楚月瑶面对杨明功的休妻控诉其忘恩负义，却遭到杨明功和袁静柔的傲慢嘲讽。",
+    "episode": "4",
+    "seg_uid": "27"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:18.420",
+    "end_time": "00:00:30.100",
+    "included_shots": [
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "状元郎 哼。没有我 你还真以为你能 当上这个状元",
+    "emotion_summary": "冷淡→决绝→冷静→专注→愤怒→质问",
+    "location": "传统中式房间",
+    "merge_reason": "镜头时间连续，场景和角色一致，展现楚月瑶从被动受辱到主动反击的心理转变和初步质问。",
+    "segment_summary": "楚月瑶对杨明功的“状元郎”身份不屑一顾，并暗示其功名与自己有关。",
+    "episode": "4",
+    "seg_uid": "28"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:30.660",
+    "end_time": "00:00:46.140",
+    "included_shots": [
+      "SHOT-07",
+      "SHOT-08"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "杨明功 三年来 若不是我在背后 一直为杨家默默运作 杨家怎么可能 有今日之局面。哈 楚月瑶 你莫不是种地 把脑子种傻了吧 楚月瑶",
+    "emotion_summary": "不满→控诉→不悦→轻蔑→极度嘲讽",
+    "location": "传统中式房间",
+    "merge_reason": "镜头时间连续，场景和角色一致，对话围绕楚月瑶对杨家贡献的控诉以及杨明功和袁静柔的嘲讽。",
+    "segment_summary": "楚月瑶控诉自己三年来对杨家的默默付出，却再次遭到杨明功和袁静柔的轻蔑嘲讽。",
+    "episode": "4",
+    "seg_uid": "29"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:46.420",
+    "end_time": "00:00:54.140",
+    "included_shots": [
+      "SHOT-09"
+    ],
+    "main_characters": [
+      "杨明功",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "你以为你是谁啊 还 默默运作 你以为你是天下第一才女吗 你不过就是个乡野村妇罢了",
+    "emotion_summary": "怒吼→贬低→受打击→悲伤",
+    "location": "传统中式房间",
+    "merge_reason": "单一镜头，完整表达杨明功对楚月瑶的最后一次羞辱和嘲讽，并提及关键的“天下第一才女”身份。",
+    "segment_summary": "杨明功恶毒贬低楚月瑶为“乡野村妇”，嘲讽她绝非“天下第一才女”。",
+    "episode": "4",
+    "seg_uid": "30"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:55.300",
+    "end_time": "00:01:10.220",
+    "included_shots": [
+      "SHOT-10",
+      "SHOT-11"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功",
+      "袁静柔"
+    ],
+    "merged_dialogues": "你 啊 杨明功。你说得对 我还真就是 天下第一才女",
+    "emotion_summary": "愤怒→报复→震惊→痛苦→惊慌→骄傲→自信→惊愕",
+    "location": "传统中式房间",
+    "merge_reason": "镜头时间连续，场景和角色一致，展现楚月瑶的反击行动和首次身份揭露，情绪爆发并转为自信。",
+    "segment_summary": "楚月瑶愤怒地将草编物掷向杨明功进行反击，并霸气宣称自己就是“天下第一才女”。",
+    "episode": "4",
+    "seg_uid": "31"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-06",
+    "start_time": "00:01:10.900",
+    "end_time": "00:01:20.220",
+    "included_shots": [
+      "SHOT-12",
+      "SHOT-13"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功"
+    ],
+    "merged_dialogues": "还有你要记住 今天不是你休了我 而是我休了你。我 还有你这新科状元 也别想当了",
+    "emotion_summary": "决绝→宣告主权→愤怒→嘲讽→威胁",
+    "location": "传统中式房间",
+    "merge_reason": "镜头时间连续，场景和角色一致，楚月瑶连续发表决绝的休夫宣言并威胁杨明功的状元地位，情绪进一步升级。",
+    "segment_summary": "楚月瑶向杨明功宣告休夫，并威胁要让他状元梦碎。",
+    "episode": "4",
+    "seg_uid": "32"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:21.220",
+    "end_time": "00:01:37.660",
+    "included_shots": [
+      "SHOT-14",
+      "SHOT-15"
+    ],
+    "main_characters": [
+      "杨明功",
+      "袁静柔",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "你竟然敢羞辱新科状元。本小姐不妨告诉你 明哥哥的状元郎 是我父亲疏通 关系钦点的 三日后 圣旨便会到达青州 就连天下第一才女 秋韵姑娘 都准备在迎凤楼 亲自设宴 款待明哥哥呢",
+    "emotion_summary": "愤怒→不甘→得意→炫耀→沾沾自喜→震惊→愤恨",
+    "location": "传统中式房间",
+    "merge_reason": "镜头时间连续，场景和角色一致，袁静柔得意地揭露杨明功状元的内幕及其与“天下第一才女秋韵”的关联。",
+    "segment_summary": "杨明功对被羞辱表示愤怒，袁静柔则得意地揭露杨明功的状元是父亲舞弊所得，并提及“天下第一才女秋韵”将设宴款待他。",
+    "episode": "4",
+    "seg_uid": "33"
+  },
+  {
+    "ep_id": "4",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:37.860",
+    "end_time": "00:01:43.100",
+    "included_shots": [
+      "SHOT-16"
+    ],
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "merged_dialogues": "区区一个青州知府袁帆 也配染指科举 真是笑话",
+    "emotion_summary": "极度愤怒→不屑→鄙夷",
+    "location": "传统中式房间",
+    "merge_reason": "单一镜头，楚月瑶听到舞弊真相后的强烈反应，言语表达了其隐藏的强大身份和对权贵的不屑。",
+    "segment_summary": "楚月瑶对青州知府袁帆染指科举的舞弊行为表示极度不屑和愤怒。",
+    "episode": "4",
+    "seg_uid": "34"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:11.740",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03",
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06",
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10",
+      "SHOT-11"
+    ],
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "闭嘴 你竟然敢直呼 知府大人的名讳看你就是找死勾引人夫不知廉耻你沉迷女色不思进取反了反了你竟然敢打我",
+    "emotion_summary": "愤怒 → 挑衅 → 痛苦 → 指责 → 震惊 → 愤慨",
+    "location": "室内房间",
+    "merge_reason": "连续的言语和肢体冲突，以及角色间的互动持续。",
+    "segment_summary": "杨明功的管家与袁静柔和杨秀秀在室内爆发激烈争吵，互相指责对方品行不端并伴随肢体接触。",
+    "episode": "5",
+    "seg_uid": "35"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:11.740",
+    "end_time": "00:00:29.180",
+    "included_shots": [
+      "SHOT-12",
+      "SHOT-13",
+      "SHOT-14",
+      "SHOT-15",
+      "SHOT-16",
+      "SHOT-17",
+      "SHOT-18",
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23",
+      "SHOT-24",
+      "SHOT-25"
+    ],
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "我今天就将你押到知府大牢 让你知道不知死活的下场诶嗯你也配滚开呃我今天就让你看清楚我袁静柔想收拾你 谁又能救得了你",
+    "emotion_summary": "威胁 → 狂怒 → 惊讶 → 自信 → 不屑 → 愤怒 → 傲慢",
+    "location": "室内房间",
+    "merge_reason": "冲突升级，杨明功的管家试图压制，袁静柔则自信反击并准备进一步行动。",
+    "segment_summary": "杨明功的管家威胁要将杨秀秀送入大牢，袁静柔则自信地回击，并拿出武器准备进一步攻击。",
+    "episode": "5",
+    "seg_uid": "36"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:29.180",
+    "end_time": "00:00:43.140",
+    "included_shots": [
+      "SHOT-26",
+      "SHOT-27",
+      "SHOT-28",
+      "SHOT-29"
+    ],
+    "main_characters": [
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "啊!就你这三脚猫的功夫 还想偷袭我",
+    "emotion_summary": "攻击性 → 惊讶 → 愤怒 → 失败 → 不屑 → 挣扎",
+    "location": "室内房间",
+    "merge_reason": "袁静柔攻击尝试的连续过程，包括发起、被制服和失败后的情绪。",
+    "segment_summary": "袁静柔试图用发簪攻击杨秀秀，不料反被杨秀秀轻松制服并摔倒在地，倍感屈辱和愤怒。",
+    "episode": "5",
+    "seg_uid": "37"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:43.140",
+    "end_time": "00:00:52.540",
+    "included_shots": [
+      "SHOT-30",
+      "SHOT-31",
+      "SHOT-32",
+      "SHOT-33",
+      "SHOT-34",
+      "SHOT-35",
+      "SHOT-36"
+    ],
+    "main_characters": [
+      "长发男子",
+      "灰袍男子"
+    ],
+    "merged_dialogues": "应该就是这里了",
+    "emotion_summary": "中性 → 沉思 → 好奇",
+    "location": "庭院/户外",
+    "merge_reason": "新角色登场，连续的场景转换和探索行为。",
+    "segment_summary": "长发男子与灰袍男子抵达一处庭院，四处观察，似乎正在寻找某处。",
+    "episode": "5",
+    "seg_uid": "38"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:52.540",
+    "end_time": "00:00:59.020",
+    "included_shots": [
+      "SHOT-37",
+      "SHOT-38",
+      "SHOT-39",
+      "SHOT-40"
+    ],
+    "main_characters": [
+      "杨明功的管家"
+    ],
+    "merged_dialogues": "",
+    "emotion_summary": "自负 → 愤怒 → 攻击性",
+    "location": "室内房间",
+    "merge_reason": "杨明功的管家持续的攻击性准备动作和情绪。",
+    "segment_summary": "杨明功的管家再次拿起棍子，怒气冲冲地准备发起攻击。",
+    "episode": "5",
+    "seg_uid": "39"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-06",
+    "start_time": "00:00:59.020",
+    "end_time": "00:01:10.500",
+    "included_shots": [
+      "SHOT-41",
+      "SHOT-42",
+      "SHOT-43",
+      "SHOT-44",
+      "SHOT-45",
+      "SHOT-46",
+      "SHOT-47",
+      "SHOT-48"
+    ],
+    "main_characters": [
+      "长发男子",
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "姑娘小心啊!",
+    "emotion_summary": "警觉 → 担忧 → 紧急 → 打斗 → 保护 → 疼痛/震惊",
+    "location": "室内房间门口 → 室内房间",
+    "merge_reason": "长发男子发现并介入打斗，解救杨秀秀的连续动作序列。",
+    "segment_summary": "长发男子发现屋内打斗，及时冲入，在杨明功的管家攻击下救下杨秀秀，过程中袁静柔也意外受伤。",
+    "episode": "5",
+    "seg_uid": "40"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:10.500",
+    "end_time": "00:01:22.980",
+    "included_shots": [
+      "SHOT-49",
+      "SHOT-50",
+      "SHOT-51",
+      "SHOT-52",
+      "SHOT-53",
+      "SHOT-54",
+      "SHOT-55",
+      "SHOT-56",
+      "SHOT-57",
+      "SHOT-58"
+    ],
+    "main_characters": [
+      "长发男子",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "",
+    "emotion_summary": "英勇 → 保护 → 深情 → 亲密",
+    "location": "室内房间",
+    "merge_reason": "长发男子与杨秀秀之间持续的亲密互动和情感流露。",
+    "segment_summary": "获救后的杨秀秀被长发男子深情拥抱，两人之间流露出亲密无间的感情。",
+    "episode": "5",
+    "seg_uid": "41"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:22.980",
+    "end_time": "00:01:36.700",
+    "included_shots": [
+      "SHOT-59",
+      "SHOT-60",
+      "SHOT-61",
+      "SHOT-62",
+      "SHOT-63"
+    ],
+    "main_characters": [
+      "长发男子",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "",
+    "emotion_summary": "情绪化 → 含泪 → 心烦意乱 → 温柔 → 安慰 → 关心",
+    "location": "室内房间",
+    "merge_reason": "杨秀秀的情绪爆发及长发男子的安慰，情感递进。",
+    "segment_summary": "杨秀秀情绪激动，含泪低头，长发男子温柔握住她的手给予安慰。",
+    "episode": "5",
+    "seg_uid": "42"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-09",
+    "start_time": "00:01:36.700",
+    "end_time": "00:01:47.380",
+    "included_shots": [
+      "SHOT-64",
+      "SHOT-65",
+      "SHOT-66",
+      "SHOT-67",
+      "SHOT-68"
+    ],
+    "main_characters": [
+      "长发男子",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "多谢公子出手搭救姑娘真的是你",
+    "emotion_summary": "感激 → 如释重负 → 高兴 → 害羞 → 满足 → 倾心 → 深情",
+    "location": "室内房间",
+    "merge_reason": "杨秀秀表达感谢，长发男子认出她，两人情感进一步升华。",
+    "segment_summary": "杨秀秀感谢长发男子的搭救，长发男子欣喜地认出她，两人之间情意绵绵。",
+    "episode": "5",
+    "seg_uid": "43"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-10",
+    "start_time": "00:01:47.380",
+    "end_time": "00:02:00.060",
+    "included_shots": [
+      "SHOT-69",
+      "SHOT-70",
+      "SHOT-71",
+      "SHOT-72",
+      "SHOT-73",
+      "SHOT-74",
+      "SHOT-75",
+      "SHOT-76"
+    ],
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀",
+      "长发男子"
+    ],
+    "merged_dialogues": "静柔我不是故意的你们在干什么还不赶紧把我扶起来啊",
+    "emotion_summary": "哭泣 → 受伤 → 恐慌 → 愤怒 → 困惑 → 命令 → 顺从",
+    "location": "室内房间",
+    "merge_reason": "袁静柔受伤后的反应，及杨明功的管家对其的照料和对其他人的质问。",
+    "segment_summary": "受伤的袁静柔哭泣不已，杨明功的管家恐慌地安抚她，并愤怒地质问杨秀秀和长发男子。",
+    "episode": "5",
+    "seg_uid": "44"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-11",
+    "start_time": "00:02:00.060",
+    "end_time": "00:02:11.740",
+    "included_shots": [
+      "SHOT-77",
+      "SHOT-78",
+      "SHOT-79",
+      "SHOT-80",
+      "SHOT-81",
+      "SHOT-82",
+      "SHOT-83"
+    ],
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀",
+      "长发男子"
+    ],
+    "merged_dialogues": "好啊你们这一对狗男女居然敢公开卿卿我我你这个女人你这个贱妇，你居然敢背着我偷汉子闭上你的狗嘴少拿你们的脏事，出来丢人现眼",
+    "emotion_summary": "狂怒 → 愤怒 → 指责 → 厌恶",
+    "location": "室内房间",
+    "merge_reason": "杨明功的管家和袁静柔持续对杨秀秀和长发男子的指责与谩骂，杨秀秀反驳。",
+    "segment_summary": "杨明功的管家和袁静柔狂怒地指责杨秀秀和长发男子是“狗男女”，杨秀秀则厌恶地反驳。",
+    "episode": "5",
+    "seg_uid": "45"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-12",
+    "start_time": "00:02:11.740",
+    "end_time": "00:02:30.660",
+    "included_shots": [
+      "SHOT-84",
+      "SHOT-85",
+      "SHOT-86",
+      "SHOT-87",
+      "SHOT-88",
+      "SHOT-89",
+      "SHOT-90",
+      "SHOT-91",
+      "SHOT-92",
+      "SHOT-93",
+      "SHOT-94",
+      "SHOT-95"
+    ],
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀",
+      "长发男子"
+    ],
+    "merged_dialogues": "大家快来看呐 大家快来看呐大家快来看呐这个女人这个贱妇，居然背着我偷汉子被我休了杨明功你再胡说大家伙都听见了吧大家都听见了吧这个女人这个贱妇，现下恼羞成怒了",
+    "emotion_summary": "愤怒 → 夸张 → 指责 → 愤怒 → 防御 → 要求 → 紧张 → 受伤",
+    "location": "室内房间",
+    "merge_reason": "杨明功的管家试图煽动围观群众，公开诬陷杨秀秀，杨秀秀愤怒反驳。",
+    "segment_summary": "杨明功的管家跑到门口高声呼喊围观群众，诬陷杨秀秀“偷汉子”并扬言休妻，引发杨秀秀的愤怒反驳。",
+    "episode": "5",
+    "seg_uid": "46"
+  },
+  {
+    "ep_id": "5",
+    "segment_id": "SEG-13",
+    "start_time": "00:02:30.660",
+    "end_time": "00:02:45.380",
+    "included_shots": [
+      "SHOT-96",
+      "SHOT-97",
+      "SHOT-98",
+      "SHOT-99",
+      "SHOT-100",
+      "SHOT-101",
+      "SHOT-102",
+      "SHOT-103",
+      "SHOT-104",
+      "SHOT-105",
+      "SHOT-106"
+    ],
+    "main_characters": [
+      "围观群众",
+      "长发男子",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "merged_dialogues": "这少年模样俊俏居然喜欢有夫之妇定是杨家媳妇水性杨花勾引了小白脸就是杨家媳妇不知廉耻早就该休了",
+    "emotion_summary": "八卦 → 惊讶 → 不赞同 → 指责 → 肯定 → 坚定 → 愤怒 → 挑衅",
+    "location": "室内房间",
+    "merge_reason": "围观群众被煽动后对杨秀秀的集体指责，以及杨秀秀的最终反应。",
+    "segment_summary": "被煽动的围观群众对杨秀秀和长发男子指指点点，指责杨秀秀“水性杨花”、“不知廉耻”，杨秀秀则愤怒地回视。",
+    "episode": "5",
+    "seg_uid": "47"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:11.120",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03"
+    ],
+    "main_characters": [
+      "女主",
+      "富商男",
+      "富商女"
+    ],
+    "merged_dialogues": "你我夫妻三年，我竟没有想到你是如此龌龊阴暗之人 你 一个臭种地的，一个臭叫花子，当真是绝配",
+    "emotion_summary": "愤怒 → 嘲讽",
+    "location": "客栈大堂",
+    "merge_reason": "女主对富商男的指责和富商女对女主及男主的嘲讽，构成一次言语冲突的起始和升级。",
+    "segment_summary": "女主指责富商男的阴暗面，富商女则嘲讽女主和男主是“绝配”。",
+    "episode": "6",
+    "seg_uid": "48"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:11.120",
+    "end_time": "00:00:16.800",
+    "included_shots": [
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06",
+      "SHOT-07"
+    ],
+    "main_characters": [
+      "护卫",
+      "富商男",
+      "富商女"
+    ],
+    "merged_dialogues": "放肆 居然敢以下犯上 侮辱逍遥王 死罪",
+    "emotion_summary": "愤怒 → 威胁",
+    "location": "客栈大堂",
+    "merge_reason": "护卫突然出现，对富商女的言语进行严厉呵斥，并间接揭示了男主可能是逍遥王的身份。",
+    "segment_summary": "护卫突然出现，严厉警告富商女其言语侮辱逍遥王是死罪。",
+    "episode": "6",
+    "seg_uid": "49"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:16.800",
+    "end_time": "00:00:25.760",
+    "included_shots": [
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10"
+    ],
+    "main_characters": [
+      "女主",
+      "男主"
+    ],
+    "merged_dialogues": "他是逍遥王啊 你是那个不喜朝廷纷争，游历江湖的逍遥王",
+    "emotion_summary": "震惊 → 惊讶",
+    "location": "客栈大堂",
+    "merge_reason": "女主听到护卫的话后，表现出震惊和求证的情绪，并向男主确认身份。",
+    "segment_summary": "女主听到护卫的言语后，震惊地向男主求证他是否为逍遥王。",
+    "episode": "6",
+    "seg_uid": "50"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:25.760",
+    "end_time": "00:00:41.960",
+    "included_shots": [
+      "SHOT-11",
+      "SHOT-12",
+      "SHOT-13",
+      "SHOT-14",
+      "SHOT-15",
+      "SHOT-16",
+      "SHOT-17",
+      "SHOT-18"
+    ],
+    "main_characters": [
+      "富商女",
+      "富商男",
+      "男主",
+      "女主"
+    ],
+    "merged_dialogues": "你个臭叫花子，装什么装 你要是逍遥王 那我还是王妃呢 一个冒充天下第一才女，一个冒充逍遥王 简直是不知死活，把这两个人给我抓起来 交给知府大人发落",
+    "emotion_summary": "嘲讽 → 愤怒",
+    "location": "客栈大堂",
+    "merge_reason": "富商女和富商男不相信男主身份，持续嘲讽并下令抓捕男主和女主，情绪从不屑到愤怒命令。",
+    "segment_summary": "富商夫妇不信逍遥王身份，嘲讽男主与女主，并命令手下将二人抓捕送交知府发落。",
+    "episode": "6",
+    "seg_uid": "51"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:41.960",
+    "end_time": "00:00:50.840",
+    "included_shots": [
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23"
+    ],
+    "main_characters": [
+      "围观群众",
+      "护卫",
+      "男主",
+      "女主"
+    ],
+    "merged_dialogues": "对，交给知府大人发落 交给知府大人发落 你们还 还有没有王法",
+    "emotion_summary": "幸灾乐祸 → 紧张",
+    "location": "客栈大堂",
+    "merge_reason": "围观群众对此事的附和，以及护卫的威胁和部分群众对王法的质疑，形成现场的紧张对峙气氛。",
+    "segment_summary": "围观群众附和富商夫妇的命令，现场气氛紧张，护卫试图行动时有群众质疑王法。",
+    "episode": "6",
+    "seg_uid": "52"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-06",
+    "start_time": "00:00:50.840",
+    "end_time": "00:00:58.360",
+    "included_shots": [
+      "SHOT-24",
+      "SHOT-25",
+      "SHOT-26",
+      "SHOT-27"
+    ],
+    "main_characters": [
+      "男主",
+      "女主"
+    ],
+    "merged_dialogues": "抱歉今日之事连累你了 无妨",
+    "emotion_summary": "歉意 → 平静",
+    "location": "客栈大堂",
+    "merge_reason": "女主向男主道歉，男主则以平静的语气回应并给予安慰，展现两人之间的情感互动。",
+    "segment_summary": "女主为连累男主表示歉意，男主则平静回应并握住她的手以示安慰。",
+    "episode": "6",
+    "seg_uid": "53"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-07",
+    "start_time": "00:00:58.360",
+    "end_time": "00:01:06.000",
+    "included_shots": [
+      "SHOT-28",
+      "SHOT-29",
+      "SHOT-30"
+    ],
+    "main_characters": [
+      "男主"
+    ],
+    "merged_dialogues": "今天 我倒要看看，谁敢动我",
+    "emotion_summary": "严肃 → 霸气",
+    "location": "客栈大堂",
+    "merge_reason": "男主气势转变，霸气宣言无人敢动他，直接引爆现场气氛。",
+    "segment_summary": "男主气势全开，霸气宣言“我倒要看看，谁敢动我”，震慑全场。",
+    "episode": "6",
+    "seg_uid": "54"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:06.000",
+    "end_time": "00:01:17.520",
+    "included_shots": [
+      "SHOT-31",
+      "SHOT-32",
+      "SHOT-33",
+      "SHOT-34",
+      "SHOT-35",
+      "SHOT-36"
+    ],
+    "main_characters": [
+      "富商男",
+      "富商女",
+      "男主",
+      "女主"
+    ],
+    "merged_dialogues": "听闻逍遥王生性散漫，不喜约束，故而离开朝堂，四处游山玩水 谁也不知道他长什么样",
+    "emotion_summary": "震惊 → 思考",
+    "location": "客栈大堂",
+    "merge_reason": "富商夫妇对男主的霸气宣言感到震惊，富商男开始回忆逍遥王的特点，男主则低语暗示其身份的神秘性。",
+    "segment_summary": "富商夫妇对男主的霸气宣言感到震惊，富商男开始回忆逍遥王的特征，男主则暗示其身份不为人知。",
+    "episode": "6",
+    "seg_uid": "55"
+  },
+  {
+    "ep_id": "6",
+    "segment_id": "SEG-09",
+    "start_time": "00:01:17.520",
+    "end_time": "00:01:27.000",
+    "included_shots": [
+      "SHOT-37",
+      "SHOT-38"
+    ],
+    "main_characters": [
+      "富商男"
+    ],
+    "merged_dialogues": "这臭叫花子 看着气度不凡，难不成真是逍遥王",
+    "emotion_summary": "狐疑 → 震惊",
+    "location": "客栈大堂",
+    "merge_reason": "富商男从狐疑到震惊，最终开始怀疑男主是否真是逍遥王，情绪达到高潮。",
+    "segment_summary": "富商男心中狐疑，最终震惊地怀疑眼前男子是否真是逍遥王。",
+    "episode": "6",
+    "seg_uid": "56"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:19.400",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03",
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06"
+    ],
+    "main_characters": [
+      "杨老夫人",
+      "袁大人"
+    ],
+    "merged_dialogues": "袁大人，这次多亏了您犬子才被选为新科的状元这些许银两不成敬意，还望大人您笑纳",
+    "emotion_summary": "喜悦 → 感激 → 讨好，期待",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "杨老夫人向袁大人行贿，感谢他促成杨明功高中状元，并献上银两以示敬意。",
+    "episode": "7",
+    "seg_uid": "57"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:19.400",
+    "end_time": "00:00:36.820",
+    "included_shots": [
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10"
+    ],
+    "main_characters": [
+      "袁大人",
+      "杨老夫人"
+    ],
+    "merged_dialogues": "我区区一个四品官，哪能管得了新科状元这么大的事不过这么多银子不收白不收杨老夫人言重了",
+    "emotion_summary": "假装谦虚，实则得意 → 紧张，担忧 → 得意，狡诈 → 放松，喜悦",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "袁大人假意推辞后，心安理得地收下贿赂，并与杨老夫人客套。",
+    "episode": "7",
+    "seg_uid": "58"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:36.820",
+    "end_time": "00:00:44.800",
+    "included_shots": [
+      "SHOT-11",
+      "SHOT-12"
+    ],
+    "main_characters": [
+      "袁大人",
+      "杨老夫人"
+    ],
+    "merged_dialogues": "小女静柔本来就心仪杨公子，本官自当相助",
+    "emotion_summary": "平静，谦逊 → 从容，自信",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "袁大人表明女儿静柔心仪杨明功，他会尽力促成这门婚事。",
+    "episode": "7",
+    "seg_uid": "59"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:44.800",
+    "end_time": "00:00:58.200",
+    "included_shots": [
+      "SHOT-13",
+      "SHOT-14",
+      "SHOT-15",
+      "SHOT-16"
+    ],
+    "main_characters": [
+      "杨老夫人",
+      "袁大人"
+    ],
+    "merged_dialogues": "只是那个乡野妇人楚月瑶大人您放心，老身回去，就让我儿子休了那女人，绝不让她踏进杨家半步那就好",
+    "emotion_summary": "喜悦转为疑惑 → 震惊，坚定 → 满意，喜悦",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "杨老夫人向袁大人承诺，会立即让儿子休弃楚月瑶，确保其不能再踏入杨家。",
+    "episode": "7",
+    "seg_uid": "60"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:58.200",
+    "end_time": "01:06.900",
+    "included_shots": [
+      "SHOT-17",
+      "SHOT-18"
+    ],
+    "main_characters": [
+      "袁大人",
+      "杨老夫人",
+      "小厮"
+    ],
+    "merged_dialogues": "不好了不好了！杨公子和逍遥王在杨家起了冲突！什么！你说的杨公子可是我儿子杨明功",
+    "emotion_summary": "惊讶，恐慌，担忧 → 震惊，愤怒",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "小厮急报杨明功与逍遥王在杨家起了冲突，令袁大人和杨老夫人震惊。",
+    "episode": "7",
+    "seg_uid": "61"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-06",
+    "start_time": "01:06:900",
+    "end_time": "01:24:000",
+    "included_shots": [
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23"
+    ],
+    "main_characters": [
+      "静柔",
+      "楚月瑶",
+      "杨明功",
+      "逍遥王随从"
+    ],
+    "merged_dialogues": "楚月瑶！你一个臭种地的，怎么可能认识逍遥王，还愣着干什么，还不给我上！让人看了笑话",
+    "emotion_summary": "愤怒，不屑，命令 → 打斗，愤怒 → 愤怒，不甘 → 担忧，紧张",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "静柔辱骂楚月瑶并指使随从攻击，导致杨明功在冲突中被打倒在地。",
+    "episode": "7",
+    "seg_uid": "62"
+  },
+  {
+    "ep_id": "7",
+    "segment_id": "SEG-07",
+    "start_time": "01:24:000",
+    "end_time": "01:32:000",
+    "included_shots": [
+      "SHOT-24",
+      "SHOT-25"
+    ],
+    "main_characters": [
+      "逍遥王",
+      "逍遥王随从"
+    ],
+    "merged_dialogues": "殿下，你没事吧？这二人屡次以下犯上如何处置，还请殿下指示",
+    "emotion_summary": "忠诚，担忧 → 请示，期待指示",
+    "location": "室内",
+    "merge_reason": "镜头语义相连，情绪连续，角色主体一致，时间连续，场景一致，情绪递进。",
+    "segment_summary": "逍遥王随从向逍遥王请示，如何处置杨明功和静柔等屡次犯上之人。",
+    "episode": "7",
+    "seg_uid": "63"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:17.300",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03",
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06",
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10",
+      "SHOT-11"
+    ],
+    "main_characters": [
+      "杨明",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "姑娘打算怎么办? 她不是什么好东西! 楚月瑶你纠缠我, 不就是想要银两吗? 你拿去就是了。我告诉你, 拿这些银子 带着你的臭乞丐赶紧走。",
+    "emotion_summary": "杨明：愤怒、鄙夷 → 楚月瑶：平静",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明主导的单方面羞辱与驱赶，情绪连续，场景一致。",
+    "segment_summary": "杨明用银两羞辱并试图赶走楚月瑶，指责她纠缠不休，并让她带着所谓的“臭乞丐”离开。",
+    "episode": "8",
+    "seg_uid": "64"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:17.300",
+    "end_time": "00:00:22.800",
+    "included_shots": [
+      "SHOT-12",
+      "SHOT-13",
+      "SHOT-14"
+    ],
+    "main_characters": [
+      "杨明",
+      "静柔",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "我们之间 已经是天壤之别了。赶紧拿着银子 离开杨家。",
+    "emotion_summary": "杨明：傲慢、强硬 → 静柔：得意",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明与静柔共同炫耀地位，强调与楚月瑶的差距，情绪连贯。",
+    "segment_summary": "杨明傲慢地宣称他与楚月瑶之间存在天壤之别，并再次命令她带着钱离开杨家。",
+    "episode": "8",
+    "seg_uid": "65"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:22.800",
+    "end_time": "00:00:32.400",
+    "included_shots": [
+      "SHOT-15",
+      "SHOT-16",
+      "SHOT-17",
+      "SHOT-18"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明"
+    ],
+    "merged_dialogues": "我楚月瑶有的是银子。你这点破银子 还是自己留着吧。",
+    "emotion_summary": "楚月瑶：悲伤→坚定→不屑 → 杨明：痛苦",
+    "location": "传统中国建筑室内",
+    "merge_reason": "楚月瑶情绪转变，从被动受辱转为主动反击，拒绝银两并反讽，时间、场景、角色一致。",
+    "segment_summary": "楚月瑶从悲伤中恢复坚定，拒绝了杨明的羞辱性银两，并反击表示自己不缺钱。",
+    "episode": "8",
+    "seg_uid": "66"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:32.400",
+    "end_time": "00:00:48.000",
+    "included_shots": [
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23"
+    ],
+    "main_characters": [
+      "静柔",
+      "楚月瑶",
+      "杨明",
+      "少年"
+    ],
+    "merged_dialogues": "楚月瑶你装什么清高? 我劝你 还是乖乖把银子捡起来。 你和你这个臭叫花子相好 怕是这辈子也没见过 这么多银两吧 少拿你们那狭隘的眼光 出来丢人现眼。 我楚月瑶最不缺的 就是银子。",
+    "emotion_summary": "静柔：鄙夷、嘲讽 → 楚月瑶：平静、戏谑、自信",
+    "location": "传统中国建筑室内",
+    "merge_reason": "静柔加入对楚月瑶的语言攻击，楚月瑶则以自信反驳，情绪对话连续。",
+    "segment_summary": "静柔加入战局，嘲讽楚月瑶和她的伴侣从未见过大钱，楚月瑶则自信回应自己从不缺钱。",
+    "episode": "8",
+    "seg_uid": "67"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:48.000",
+    "end_time": "00:00:57.900",
+    "included_shots": [
+      "SHOT-24",
+      "SHOT-25",
+      "SHOT-26",
+      "SHOT-27"
+    ],
+    "main_characters": [
+      "杨明",
+      "静柔",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "楚月瑶 你少在这里大言不惭! 我告诉你, 我和静柔 不日便要成婚, 有知府大人照拂。 有知府大人照拂。",
+    "emotion_summary": "杨明：愤怒→得意 → 静柔：得意",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明和静柔联手向楚月瑶炫耀即将到来的婚事和依仗知府的权势，对话连续。",
+    "segment_summary": "杨明和静柔得意地向楚月瑶炫耀即将到来的婚姻以及知府大人的庇护。",
+    "episode": "8",
+    "seg_uid": "68"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-06",
+    "start_time": "00:00:57.900",
+    "end_time": "00:01:10.900",
+    "included_shots": [
+      "SHOT-28",
+      "SHOT-29",
+      "SHOT-30",
+      "SHOT-31",
+      "SHOT-32"
+    ],
+    "main_characters": [
+      "杨明",
+      "静柔",
+      "楚月瑶",
+      "少年"
+    ],
+    "merged_dialogues": "有第一才女赏识。我这个新科状元的仕途 自会一帆风顺, 日后 更是享不尽的荣华富贵。 更是享不尽的荣华富贵。只可惜啊, 这一切都与你无关。",
+    "emotion_summary": "楚月瑶：面无表情（深意）→ 杨明：自豪、嘲讽 → 静柔：得意",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明与静柔继续炫耀未来仕途与财富，楚月瑶则在其中留下伏笔，情绪、角色一致。",
+    "segment_summary": "杨明和静柔继续炫耀其状元仕途与未来荣华富贵，并嘲讽楚月瑶与此无关，楚月瑶则意味深长地提及“第一才女”。",
+    "episode": "8",
+    "seg_uid": "69"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:10.900",
+    "end_time": "00:01:17.300",
+    "included_shots": [
+      "SHOT-33",
+      "SHOT-34",
+      "SHOT-35"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "少年"
+    ],
+    "merged_dialogues": "没错你说的对, 三日后。三日后。这些荣华富贵 也与你无关了。",
+    "emotion_summary": "楚月瑶：平静→玩味→坚定、自信 → 少年：平静",
+    "location": "传统中国建筑室内",
+    "merge_reason": "楚月瑶直接预言杨明的荣华富贵将终结，少年则进行呼应，情绪连续，对话完整。",
+    "segment_summary": "楚月瑶平静而自信地预言，三日之后杨明的荣华富贵也将与他无关。",
+    "episode": "8",
+    "seg_uid": "70"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:17.300",
+    "end_time": "00:01:26.200",
+    "included_shots": [
+      "SHOT-36",
+      "SHOT-37",
+      "SHOT-38",
+      "SHOT-39"
+    ],
+    "main_characters": [
+      "杨明",
+      "静柔",
+      "楚月瑶",
+      "少年"
+    ],
+    "merged_dialogues": "满嘴的疯言疯语。看来我休了你, 还真是休对了。明哥哥我看啊, 她是刺激过度 患上失心疯了。",
+    "emotion_summary": "杨明：愤怒、自得 → 静柔：嘲讽、轻蔑",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明和静柔对楚月瑶的预言嗤之以鼻，并称其为疯言疯语，情绪连贯。",
+    "segment_summary": "杨明和静柔嘲讽楚月瑶的预言是疯言疯语，并认定她已经失心疯。",
+    "episode": "8",
+    "seg_uid": "71"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-09",
+    "start_time": "00:01:26.200",
+    "end_time": "00:01:45.900",
+    "included_shots": [
+      "SHOT-40",
+      "SHOT-41",
+      "SHOT-42",
+      "SHOT-43",
+      "SHOT-44",
+      "SHOT-45",
+      "SHOT-46",
+      "SHOT-47"
+    ],
+    "main_characters": [
+      "杨明",
+      "楚月瑶",
+      "少年"
+    ],
+    "merged_dialogues": "楚月瑶你也别怪我, 我也是为了你好。如今, 我已是状元之姿, 可你 不过是个乡野妇人。我们之间 已经是云泥之别了, 你继续赖在杨府, 只会是自取其辱。",
+    "emotion_summary": "杨明：假装好意→得意→傲慢→嘲讽 → 楚月瑶：平静",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明进一步羞辱楚月瑶，强调两人地位悬殊，并劝她离开，情绪、角色一致。",
+    "segment_summary": "杨明假意称是为了楚月瑶好，进一步羞辱她是“乡野妇人”，强调两人地位天壤之别，并警告她赖在杨府只会自取其辱。",
+    "episode": "8",
+    "seg_uid": "72"
+  },
+  {
+    "ep_id": "8",
+    "segment_id": "SEG-10",
+    "start_time": "00:01:45.900",
+    "end_time": "00:01:57.900",
+    "included_shots": [
+      "SHOT-48",
+      "SHOT-49",
+      "SHOT-50",
+      "SHOT-51"
+    ],
+    "main_characters": [
+      "杨明",
+      "静柔",
+      "少年"
+    ],
+    "merged_dialogues": "只有像静柔这样的 名门闺秀 才会是我的良配。",
+    "emotion_summary": "杨明、静柔：亲密、得意、满足 → 少年：自信、神秘",
+    "location": "传统中国建筑室内",
+    "merge_reason": "杨明与静柔的最终秀恩爱与自我满足，以及少年意味深长的收尾，构成剧情小高潮。",
+    "segment_summary": "杨明称静柔才是他的良配，两人亲密得意，而楚月瑶的伴侣则以自信的笑容收尾，预示着剧情反转。",
+    "episode": "8",
+    "seg_uid": "73"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:16.480",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03",
+      "SHOT-04",
+      "SHOT-05",
+      "SHOT-06"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功",
+      "袁大千金"
+    ],
+    "merged_dialogues": "楚月瑶你笑什么我笑你有眼不识泰山一个连给我提鞋都没有资格的知府小姐就能让你得意成这样杨明功你的眼睛还真是没有白瞎呀",
+    "emotion_summary": "开心 → 疑惑/愤怒 → 不满/嘲讽 → 不屑",
+    "location": "屋内",
+    "merge_reason": "楚月瑶与杨明功、袁大千金之间的连续对话与情绪递进。",
+    "segment_summary": "楚月瑶自信地嘲讽杨明功与袁大千金有眼无珠，言语间尽显不屑与霸气。",
+    "episode": "9",
+    "seg_uid": "74"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:16.480",
+    "end_time": "00:00:23.280",
+    "included_shots": [
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09"
+    ],
+    "main_characters": [
+      "杨明功",
+      "袁大千金",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "你你胡说什么楚月瑶你竟敢羞辱我千金之躯我决不会放过你",
+    "emotion_summary": "愤怒 → 极度愤怒",
+    "location": "屋内",
+    "merge_reason": "杨明功与袁大千金对楚月瑶嘲讽的连续回应与情绪爆发。",
+    "segment_summary": "杨明功与袁大千金被楚月瑶激怒，袁大千金愤而欲动手报复。",
+    "episode": "9",
+    "seg_uid": "75"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:23.280",
+    "end_time": "00:00:30.920",
+    "included_shots": [
+      "SHOT-10",
+      "SHOT-11"
+    ],
+    "main_characters": [
+      "袁大千金",
+      "男配角",
+      "杨明功"
+    ],
+    "merged_dialogues": "",
+    "emotion_summary": "愤怒/紧张 → 痛苦/慌张",
+    "location": "屋内",
+    "merge_reason": "袁大千金动手与男配角阻拦的连续动作场景，伴随意外发生。",
+    "segment_summary": "袁大千金举棍袭击楚月瑶，被男配角挡下，棍子断裂误伤了杨明功。",
+    "episode": "9",
+    "seg_uid": "76"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:31.000",
+    "end_time": "00:00:45.920",
+    "included_shots": [
+      "SHOT-12",
+      "SHOT-13",
+      "SHOT-14",
+      "SHOT-15",
+      "SHOT-16",
+      "SHOT-17"
+    ],
+    "main_characters": [
+      "杨母",
+      "杨明功",
+      "袁大千金"
+    ],
+    "merged_dialogues": "让开让开让开谁敢在我杨家闹事谁敢在我杨家闹事儿子儿子娘你没事吧没事你你这眼睛",
+    "emotion_summary": "焦急/愤怒 → 担忧 → 震惊/愤怒",
+    "location": "屋内",
+    "merge_reason": "杨母进场，焦急询问并发现杨明功受伤，情绪连续。",
+    "segment_summary": "杨母闯入屋内，焦急地询问儿子杨明功的情况，发现他眼睛受伤后表现出震惊与愤怒。",
+    "episode": "9",
+    "seg_uid": "77"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:45.920",
+    "end_time": "00:00:58.160",
+    "included_shots": [
+      "SHOT-18",
+      "SHOT-19",
+      "SHOT-20"
+    ],
+    "main_characters": [
+      "杨母",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "楚月瑶你好大的胆子不好好种地跑到这里和袁大千金起冲突啊母亲住口你可没资格叫我",
+    "emotion_summary": "愤怒/指责 → 无奈/坚定 → 轻蔑/嘲讽",
+    "location": "屋内",
+    "merge_reason": "杨母对楚月瑶的连续指责和楚月瑶的反驳，婆媳矛盾升级。",
+    "segment_summary": "杨母将矛头指向楚月瑶，对她进行愤怒指责，并轻蔑地拒绝楚月瑶叫她“母亲”。",
+    "episode": "9",
+    "seg_uid": "78"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-06",
+    "start_time": "00:01:01.920",
+    "end_time": "00:01:12.600",
+    "included_shots": [
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23",
+      "SHOT-24",
+      "SHOT-25"
+    ],
+    "main_characters": [
+      "杨母",
+      "杨明功",
+      "楚月瑶",
+      "男配角"
+    ],
+    "merged_dialogues": "这小白脸是谁娘这就是这个女人在外面偷的汉子楚月瑶你敢在我杨家偷人啊你找死啊你",
+    "emotion_summary": "愤怒 → 极度愤怒",
+    "location": "屋内",
+    "merge_reason": "杨母和杨明功针对男配角与楚月瑶关系的连续质问与指责。",
+    "segment_summary": "杨母在杨明功的告发下，愤怒地指责楚月瑶与男配角有染，并恶语相向。",
+    "episode": "9",
+    "seg_uid": "79"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:12.600",
+    "end_time": "00:01:24.400",
+    "included_shots": [
+      "SHOT-26",
+      "SHOT-27",
+      "SHOT-28"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨母",
+      "男配角"
+    ],
+    "merged_dialogues": "你哪只眼睛看见我偷人了，我敬你是长辈故而唤你一声母亲没想到你居然倚老卖老还真当自己是个人物了",
+    "emotion_summary": "不满/坚定 → 愤怒/反驳 → 不屑",
+    "location": "屋内",
+    "merge_reason": "楚月瑶对杨母“偷人”指控的连续反驳和蔑视。",
+    "segment_summary": "楚月瑶霸气反击杨母的“偷人”指责，并蔑视杨母的倚老卖老言行。",
+    "episode": "9",
+    "seg_uid": "80"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:24.600",
+    "end_time": "00:01:29.080",
+    "included_shots": [
+      "SHOT-29"
+    ],
+    "main_characters": [
+      "杨母",
+      "杨明功"
+    ],
+    "merged_dialogues": "你你这个不知廉耻的扫把星简直是贱得可以",
+    "emotion_summary": "极度愤怒/羞辱",
+    "location": "屋内",
+    "merge_reason": "杨母独自的激烈情绪爆发和人身攻击。",
+    "segment_summary": "杨母对楚月瑶进行恶毒的人身攻击，称其为“不知廉耻的扫把星”。",
+    "episode": "9",
+    "seg_uid": "81"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-09",
+    "start_time": "00:01:30.960",
+    "end_time": "00:01:42.000",
+    "included_shots": [
+      "SHOT-30",
+      "SHOT-31",
+      "SHOT-32"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "男配角",
+      "杨母"
+    ],
+    "merged_dialogues": "我们走站住想要走也可以把你这些年在我杨家吃穿用度的所有费用给我还回来",
+    "emotion_summary": "坚定 → 愤怒 → 贪婪",
+    "location": "屋内",
+    "merge_reason": "楚月瑶尝试离开，被杨母阻止并索要费用，动作与对话连续。",
+    "segment_summary": "楚月瑶决定与男配角离开，却被杨母阻止并索要她在杨家三年来的一切花费。",
+    "episode": "9",
+    "seg_uid": "82"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-10",
+    "start_time": "00:01:42.000",
+    "end_time": "00:01:48.000",
+    "included_shots": [
+      "SHOT-33"
+    ],
+    "main_characters": [
+      "杨母",
+      "杨明功",
+      "袁大千金"
+    ],
+    "merged_dialogues": "娘娘你没事吧",
+    "emotion_summary": "痛苦/委屈/担忧",
+    "location": "屋内",
+    "merge_reason": "杨母被推倒后的即时反应和他人搀扶。",
+    "segment_summary": "杨母被推倒在地，杨明功和袁大千金上前扶起她，并焦急询问。",
+    "episode": "9",
+    "seg_uid": "83"
+  },
+  {
+    "ep_id": "9",
+    "segment_id": "SEG-11",
+    "start_time": "00:01:48.000",
+    "end_time": "00:02:04.360",
+    "included_shots": [
+      "SHOT-34"
+    ],
+    "main_characters": [
+      "杨母",
+      "杨明功",
+      "楚月瑶",
+      "袁大千金"
+    ],
+    "merged_dialogues": "你这女人当初我让你进我杨家的门是为了给我杨家传宗接代开枝散叶的三年了呀铁公鸡也该下蛋了你这毒妇没有给我杨家留下一儿半女啊你就是全天下妇人的耻辱没法活了",
+    "emotion_summary": "痛苦/指责/哭泣",
+    "location": "屋内",
+    "merge_reason": "杨母长时间的悲痛哭诉和对楚月瑶的集中指责。",
+    "segment_summary": "杨母坐在地上痛哭，声泪俱下地指责楚月瑶三年未生子，是杨家的耻辱。",
+    "episode": "9",
+    "seg_uid": "84"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-01",
+    "start_time": "00:00:00.000",
+    "end_time": "00:00:06.979",
+    "included_shots": [
+      "SHOT-01",
+      "SHOT-02",
+      "SHOT-03",
+      "SHOT-04",
+      "SHOT-05"
+    ],
+    "main_characters": [
+      "杨夫人",
+      "杨明功",
+      "袁静柔",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "你这女人你还有脸笑啊",
+    "emotion_summary": "愤怒，惊恐 → 平静，嘲讽",
+    "location": "室内",
+    "merge_reason": "杨家母子情绪激动，楚月瑶则以平静嘲讽的态度应对指责，构成开场的情绪对峙，镜头时间连续。",
+    "segment_summary": "杨夫人与杨明功情绪激动地质问，楚月瑶则以平静嘲讽的态度应对指责。",
+    "episode": "10",
+    "seg_uid": "85"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-02",
+    "start_time": "00:00:06.980",
+    "end_time": "00:00:19.979",
+    "included_shots": [
+      "SHOT-06",
+      "SHOT-07",
+      "SHOT-08",
+      "SHOT-09",
+      "SHOT-10"
+    ],
+    "main_characters": [
+      "杨夫人",
+      "杨明功",
+      "袁静柔",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "娘别说了,我凭什么不能说了啊儿子,事到如今你还为这个女人说话是啊明哥哥,你就别再心软了",
+    "emotion_summary": "痛苦，挣扎 → 愤怒，劝阻 → 平静，无奈 → 愤怒，激动 → 痛苦，委屈",
+    "location": "室内",
+    "merge_reason": "杨明功试图阻止杨夫人对楚月瑶的指责，袁静柔介入劝阻杨明功，楚月瑶则保持冷静，对话和情绪连续。",
+    "segment_summary": "杨明功试图阻止母亲的指责，杨夫人则怒斥其为楚月瑶说话，袁静柔也劝杨明功别心软，楚月瑶平静面对。",
+    "episode": "10",
+    "seg_uid": "86"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-03",
+    "start_time": "00:00:19.980",
+    "end_time": "00:00:36.939",
+    "included_shots": [
+      "SHOT-11",
+      "SHOT-12",
+      "SHOT-13",
+      "SHOT-14",
+      "SHOT-15"
+    ],
+    "main_characters": [
+      "杨夫人",
+      "杨明功",
+      "楚月瑶",
+      "百姓"
+    ],
+    "merged_dialogues": "大家伙快来呀,替我评评理啊都来给我评评理啊,来来来,给我评评理俗话说,不孝有三,无后为大更何况,这楚月瑶还偷情这种人,早就该被扫地出门才是",
+    "emotion_summary": "愤怒，呼唤 → 平静，嘲讽 → 义愤填膺 → 痛苦，低落 → 平静，淡然",
+    "location": "室内",
+    "merge_reason": "杨夫人召集围观者公开声讨楚月瑶，楚月瑶讽刺地回应，百姓和杨明功也加入指责，情绪和场景连续。",
+    "segment_summary": "杨夫人高声呼唤百姓评理，楚月瑶则讽刺性地附和，百姓指责其无后偷情，杨明功也再次控诉其偷情。",
+    "episode": "10",
+    "seg_uid": "87"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-04",
+    "start_time": "00:00:37.140",
+    "end_time": "00:00:48.539",
+    "included_shots": [
+      "SHOT-16",
+      "SHOT-17",
+      "SHOT-18"
+    ],
+    "main_characters": [
+      "逍遥王",
+      "丫鬟",
+      "楚月瑶"
+    ],
+    "merged_dialogues": "是啊也就是杨公子和,杨老夫人心善,这要是我,这,楚月瑶早就被浸猪笼了既然你杨家不要脸面,那也别怪我不客气",
+    "emotion_summary": "冷静，观察 → 激动，义愤 → 坚定，自信",
+    "location": "室内",
+    "merge_reason": "逍遥王旁观，丫鬟情绪激动地谴责楚月瑶，促使楚月瑶做出坚定反击的宣言，情绪递进。",
+    "segment_summary": "逍遥王冷静观察着事态，丫鬟激愤地声讨楚月瑶，楚月瑶则坚定地表示将不客气地反击。",
+    "episode": "10",
+    "seg_uid": "88"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-05",
+    "start_time": "00:00:48.620",
+    "end_time": "00:01:00.099",
+    "included_shots": [
+      "SHOT-19",
+      "SHOT-20",
+      "SHOT-21",
+      "SHOT-22",
+      "SHOT-23"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨夫人",
+      "杨明功"
+    ],
+    "merged_dialogues": "我告诉你,你们杨家是不会有后的你这女人你,你竟敢诅咒我杨家我打死你娘",
+    "emotion_summary": "平静，坚定 → 震惊，愤怒 → 愤怒，绝望 → 暴怒，攻击 → 惊慌，阻止",
+    "location": "室内",
+    "merge_reason": "楚月瑶的言语激怒杨夫人和杨明功，杨夫人欲施暴被杨明功阻止，情绪和动作冲突连续。",
+    "segment_summary": "楚月瑶一句“杨家不会有后”激怒杨夫人和杨明功，杨夫人暴怒冲向楚月瑶，被杨明功慌忙阻止。",
+    "episode": "10",
+    "seg_uid": "89"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-06",
+    "start_time": "00:01:01.180",
+    "end_time": "00:01:21.000",
+    "included_shots": [
+      "SHOT-24",
+      "SHOT-25",
+      "SHOT-26",
+      "SHOT-27",
+      "SHOT-28",
+      "SHOT-29",
+      "SHOT-30"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功",
+      "杨夫人",
+      "袁静柔",
+      "逍遥王"
+    ],
+    "merged_dialogues": "我只是实话实说罢了不信,你可以问问你的宝贝儿子他这三年来,可有一次站起来过明哥哥,她说的,可是真的儿子,你,你",
+    "emotion_summary": "平静，坚定 → 震惊，痛苦 → 震惊，无言 → 思考，观察 → 急切，担忧 → 震惊，愤怒",
+    "location": "室内",
+    "merge_reason": "楚月瑶揭露杨明功双腿残疾的秘密，杨家母子和袁静柔的震惊、痛苦、质问等一系列连锁反应，逍遥王旁观，核心剧情推进。",
+    "segment_summary": "楚月瑶平静地揭露杨明功三年来从未站立的秘密，杨家母子和袁静柔震惊不已，向杨明功追问真相。",
+    "episode": "10",
+    "seg_uid": "90"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-07",
+    "start_time": "00:01:22.940",
+    "end_time": "00:01:29.900",
+    "included_shots": [
+      "SHOT-31",
+      "SHOT-32"
+    ],
+    "main_characters": [
+      "杨明功",
+      "杨夫人",
+      "楚月瑶",
+      "袁静柔"
+    ],
+    "merged_dialogues": "楚月瑶,你竟然敢侮辱新科状元,你找死你们两个,把这个女人给我抓起来",
+    "emotion_summary": "愤怒，威胁 → 命令，愤怒",
+    "location": "室内",
+    "merge_reason": "杨明功因秘密被揭露而恼羞成怒，杨夫人随即下令抓捕楚月瑶，情绪连续且目的明确。",
+    "segment_summary": "杨明功恼羞成怒，威胁楚月瑶找死，杨夫人则直接命令手下抓捕楚月瑶。",
+    "episode": "10",
+    "seg_uid": "91"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-08",
+    "start_time": "00:01:30.460",
+    "end_time": "00:01:39.939",
+    "included_shots": [
+      "SHOT-33",
+      "SHOT-34",
+      "SHOT-35",
+      "SHOT-36"
+    ],
+    "main_characters": [
+      "逍遥王",
+      "楚月瑶",
+      "杨夫人",
+      "杨明功",
+      "林玄"
+    ],
+    "merged_dialogues": "你们当本王是摆设是吧小恒在",
+    "emotion_summary": "威严，不悦 → 平静，命令 → 严肃，准备",
+    "location": "室内",
+    "merge_reason": "逍遥王发声阻止杨家，并召唤其护卫发出信号，为下一步行动做准备，场景、角色和情绪连续。",
+    "segment_summary": "逍遥王威严地介入，警告杨家人不要无视他，并召唤林玄准备发出信号。",
+    "episode": "10",
+    "seg_uid": "92"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-09",
+    "start_time": "00:01:39.940",
+    "end_time": "00:01:42.939",
+    "included_shots": [
+      "SHOT-37"
+    ],
+    "main_characters": [],
+    "merged_dialogues": "",
+    "emotion_summary": "震撼",
+    "location": "室外",
+    "merge_reason": "独立的过渡镜头，展示信号弹升空，作为外部力量介入的视觉提示，打破室内场景的连续性。",
+    "segment_summary": "一道信号弹冲向夜空，炸开绚丽的光芒。",
+    "episode": "10",
+    "seg_uid": "93"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-10",
+    "start_time": "00:01:42.940",
+    "end_time": "00:01:57.779",
+    "included_shots": [
+      "SHOT-38",
+      "SHOT-39",
+      "SHOT-40",
+      "SHOT-41",
+      "SHOT-42"
+    ],
+    "main_characters": [
+      "杨夫人",
+      "杨明功",
+      "楚月瑶",
+      "袁静柔",
+      "逍遥王",
+      "杨夫人护卫"
+    ],
+    "merged_dialogues": "你们这对狗男女,又在跟我玩什么花样啊我倒要看看,你们能在杨家,掀起什么风浪你们两个站着干什么呢,把女人给我抓起来闪开",
+    "emotion_summary": "疑惑，不解 → 愤怒，不屑 → 傲慢，挑衅 → 愤怒，命令 → 攻击，威胁",
+    "location": "室内",
+    "merge_reason": "杨家母子对信号弹反应迟钝，持续挑衅并命令护卫再次动手，情绪和行动不断升级。",
+    "segment_summary": "杨夫人和杨明功不屑地继续挑衅逍遥王和楚月瑶，杨夫人再次命令手下动手，护卫拔刀冲向楚月瑶。",
+    "episode": "10",
+    "seg_uid": "94"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-11",
+    "start_time": "00:01:57.780",
+    "end_time": "00:02:09.259",
+    "included_shots": [
+      "SHOT-43",
+      "SHOT-44",
+      "SHOT-45",
+      "SHOT-46",
+      "SHOT-47"
+    ],
+    "main_characters": [
+      "林玄",
+      "杨明功",
+      "杨夫人",
+      "楚月瑶",
+      "逍遥王",
+      "玄甲军"
+    ],
+    "merged_dialogues": "闪开",
+    "emotion_summary": "惊讶，恐慌 → 震惊，威慑 → 平静，观察 → 惊恐，退缩 → 压迫，恐惧",
+    "location": "室内",
+    "merge_reason": "林玄和玄甲军强势入场，瞬间逆转局势，杨家母子从攻击者变为被震慑者，楚月瑶冷静旁观，戏剧张力达到高潮。",
+    "segment_summary": "林玄及时赶到挡下攻击，大批玄甲军随后涌入，包围并压制了杨家母子，楚月瑶平静地看着这一切。",
+    "episode": "10",
+    "seg_uid": "95"
+  },
+  {
+    "ep_id": "10",
+    "segment_id": "SEG-12",
+    "start_time": "00:02:09.259",
+    "end_time": "00:02:14.939",
+    "included_shots": [
+      "SHOT-48",
+      "SHOT-49"
+    ],
+    "main_characters": [
+      "林玄",
+      "逍遥王"
+    ],
+    "merged_dialogues": "末将救驾来迟,还请逍遥王恕罪起来吧,未完待续",
+    "emotion_summary": "恭敬，请罪 → 从容，自信",
+    "location": "室内",
+    "merge_reason": "林玄向逍遥王请罪，逍遥王从容接受并示意结束，作为本集的收尾，情绪和剧情达到阶段性完结。",
+    "segment_summary": "林玄向逍遥王请罪，逍遥王从容示意他起身，本集在逍遥王的掌控中以“未完待续”结束。",
+    "episode": "10",
+    "seg_uid": "96"
+  }
+  （当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。
+  当前内容为测试长度内容，无需理会。）
+]
+
+【角色表 characters.json】
+[
+  {
+    "name": "秋韵",
+    "type": "主角",
+    "personality": "聪慧独立、身手不凡（功力）、顾家、深情（为夫隐忍）、有城府（隐藏身份），但也带有大小姐的任性（难缠），孝顺（对父亲）。",
+    "relationship": {
+      "杨明功": "妻子",
+      "楚相": "女儿",
+      "叶无涯": "上级 / 主子"
+    },
+    "background": "楚相之女，为躲避朝廷纷争，嫁入杨家并隐藏显赫身份，化名为‘秋韵’，潜心照料丈夫三年，对外是‘天下第一才女’。因担心丈夫自卑，一直未表明真实身份。"
+  },
+  {
+    "name": "杨明功",
+    "type": "主角",
+    "personality": "看似普通书生，可能略有自卑（妻子怕其自卑），上进（考中状元）。",
+    "relationship": {
+      "秋韵": "丈夫",
+      "楚相": "女婿"
+    },
+    "background": "秋韵的丈夫，本届新科状元，被楚相通过圣上钦点。对妻子的真实身份一无所知。"
+  },
+  {
+    "name": "楚相",
+    "type": "配角",
+    "personality": "权倾朝野（能影响圣上），深谋远虑（为女儿安排婚事），思念女儿，对女儿疼爱。",
+    "relationship": {
+      "秋韵": "父亲",
+      "杨明功": "岳父"
+    },
+    "background": "朝廷重臣，权力巨大。为保护女儿秋韵而将其嫁入杨家，并暗中安排杨明功成为状元，希望女儿能早日回家团聚。"
+  },
+  {
+    "name": "叶无涯",
+    "type": "配角",
+    "personality": "忠心耿耿，谨小慎微，对楚相和秋韵都十分敬畏，但也会偶尔抱怨（难缠）。",
+    "relationship": {
+      "秋韵": "属下 / 随从",
+      "楚相": "属下"
+    },
+    "background": "楚相的属下，负责照料和保护秋韵，并向楚相汇报情况。经常被秋韵的任性搞得束手无策。"
+  },
+  {
+    "name": "楚月瑶",
+    "type": "主角",
+    "personality": "飒爽、率性、有些鲁莽、慷慨、不拘小节、敢作敢当",
+    "relationship": {
+      "太子殿下": "间接冲突的肇事者与受害者（楚月瑶骑马险撞太子），互相欣赏（太子对楚月瑶心生好感）"
+    },
+    "background": "一位身份不凡的女子，骑术生疏却敢于快马出行，行为颇为豪爽，被众人称为“奇女子”，并慷慨地赠送了马匹作为赔偿。"
+  },
+  {
+    "name": "太子殿下",
+    "type": "主角",
+    "personality": "温和、宽容、胸襟开阔、有涵养、对楚月瑶心生欣赏",
+    "relationship": {
+      "楚月瑶": "间接冲突的肇事者与受害者（楚月瑶骑马险撞太子），互相欣赏（太子对楚月瑶心生好感）",
+      "随从": "主仆关系"
+    },
+    "background": "皇室成员，身份尊贵，出行有随从护卫，面对突发事件展现出极高的修养与气度，对楚月瑶的出现感到好奇和欣赏。"
+  },
+  {
+    "name": "静柔",
+    "type": "反派",
+    "personality": "骄纵、功利、心机、占有欲强、利用家庭背景、缺乏道德底线",
+    "relationship": {
+      "明哥哥": "情侣（即将成婚），利用其父亲的权势帮助明哥哥，并要求明哥哥休掉现有“野妇”",
+      "父亲": "依靠父亲的权势为明哥哥铺路"
+    },
+    "background": "一位有权势父亲的女儿，为确保与明哥哥的婚事，不惜利用家族背景，并要求明哥哥抛弃现有伴侣。"
+  },
+  {
+    "name": "明哥哥",
+    "type": "配角",
+    "personality": "世故、圆滑、趋炎附势、缺乏原则、甜言蜜语、为了功名利禄不择手段",
+    "relationship": {
+      "静柔": "情侣（即将成婚），为了静柔父亲的权势，承诺休掉“野妇”并娶静柔",
+      "秋韵姑娘": "被秋韵姑娘设宴款待",
+      "野妇": "被明哥哥称为“野妇”的未明身份的现有伴侣，明哥哥计划将其休弃"
+    },
+    "background": "本届新科状元，为了仕途和权势，不惜承诺抛弃现有伴侣，追求静柔及其家族背景。"
+  },
+  {
+    "name": "随从",
+    "type": "配角",
+    "personality": "忠诚、尽职、护主心切、敢于直言",
+    "relationship": {
+      "太子殿下": "主仆关系"
+    },
+    "background": "太子殿下的贴身护卫或随从，关心主子的安危。"
+  },
+  {
+    "name": "秋韵姑娘",
+    "type": "其他",
+    "personality": "不详，但被誉为“天下第一才女”",
+    "relationship": {
+      "明哥哥": "将设宴款待明哥哥"
+    },
+    "background": "青州城享有盛誉的“天下第一才女”，地位显赫，其将在迎凤楼设宴款待新科状元明哥哥。"
+  },
+  {
+    "name": "冰糖葫芦小贩",
+    "type": "其他",
+    "personality": "热情叫卖",
+    "relationship": {},
+    "background": "青州城街头普通的冰糖葫芦摊贩。"
+  },
+  {
+    "name": "杨明",
+    "type": "反派",
+    "personality": "势利、薄情、虚伪、自私、忘恩负义。在高中状元后立即抛弃糟糠之妻，攀附权贵。",
+    "relationship": {
+      "楚月瑶": "丈夫（即将休弃的妻子）",
+      "袁小姐": "情人，意图另娶的对象"
+    },
+    "background": "本届新科状元，为了前途和地位，背叛妻子楚月瑶，与青州知府千金袁小姐勾搭成奸。"
+  },
+  {
+    "name": "袁小姐",
+    "type": "反派",
+    "personality": "跋扈、嚣张、自恃身份、目中无人。依仗父辈权势，对楚月瑶极尽嘲讽和羞辱。",
+    "relationship": {
+      "杨明": "情人",
+      "楚月瑶": "情敌，视其为“蠢妇”"
+    },
+    "background": "青州知府的千金，与杨明有染，并协同杨明羞辱并赶走楚月瑶。"
+  },
+  {
+    "name": "袁帆",
+    "type": "其他",
+    "personality": "腐败，滥用职权，幕后操控。",
+    "relationship": {
+      "杨明功": "幕后支持者，潜在姻亲",
+      "袁小姐": "女儿"
+    },
+    "background": "青州知府，利用职权插手科举，帮助杨明功获得状元之位。"
+  },
+  {
+    "name": "袁静柔",
+    "type": "主角",
+    "personality": "刚烈、果断、有能力、不畏强权、厌恶虚伪、被误解",
+    "relationship": {
+      "杨明功": "丈夫（关系恶劣，被其诬陷）、情敌",
+      "公子": "被搭救者、旧识或心仪之人"
+    },
+    "background": "杨明功之妻，被丈夫指责“勾引人夫”并欲休妻，但实际上她反击并揭露丈夫“沉迷女色，不思进取”。具有一定武力，敢于直呼知府名讳，显示出不凡的背景或胆识。"
+  },
+  {
+    "name": "公子",
+    "type": "配角",
+    "personality": "正直、侠义、关心袁静柔、温和",
+    "relationship": {
+      "袁静柔": "搭救者、旧识或心仪之人",
+      "杨明功": "情敌（被其诬陷）"
+    },
+    "background": "在袁静柔危难时出手相助，与袁静柔似乎有旧情或秘密联系，其出现打破了杨明功对袁静柔的压制。"
+  },
+  {
+    "name": "围观群众",
+    "type": "其他",
+    "personality": "盲从、八卦、易受煽动、传统观念根深蒂固",
+    "relationship": {
+      "袁静柔": "被煽动后对其进行道德审判",
+      "杨明功": "听信其片面之词"
+    },
+    "background": "旁观者，在杨明功的煽动下，对袁静柔进行道德审判，反映了古代社会舆论对女性的压力。"
+  },
+  {
+    "name": "逍遥王",
+    "type": "主角",
+    "personality": "隐忍（初期被辱骂时），淡然（面对侮辱），自信（“谁敢动我”），有担当（向才女道歉），低调（游历江湖不露身份）。",
+    "relationship": {
+      "正妻": "被其误解、侮辱、诬陷，曾被其前夫的正妻贬低。",
+      "才女": "因共同遭遇困境而相互扶持，逍遥王对其抱有歉意。",
+      "王府侍卫": "忠诚的下属，维护其尊严。",
+      "丈夫（臭种地的）": "被正妻视为“绝配”，一同被侮辱。"
+    },
+    "background": "真实身份是当朝的逍遥王，但生性散漫，不喜朝廷纷争，常年游历江湖，导致其真容不为人知。"
+  },
+  {
+    "name": "正妻",
+    "type": "反派",
+    "personality": "刻薄，尖酸，嚣张跋扈，傲慢，势力，识人不清，善于颠倒黑白。",
+    "relationship": {
+      "丈夫（臭种地的）": "三年的夫妻关系，但对其极尽侮辱和厌弃，视其为下等人。",
+      "逍遥王": "将其错认为“臭叫花子”并恶意侮辱，后又对其真实身份将信将疑。",
+      "才女": "诬陷其冒充“天下第一才女”，并指使手下抓捕。",
+      "知府下属": "可以发号施令，显示其有一定权势或背景。"
+    },
+    "background": "曾与“臭种地的”维持了三年的夫妻关系，但显然已厌弃对方。言行举止显示其地位不低，能调动知府手下。"
+  },
+  {
+    "name": "才女",
+    "type": "主角",
+    "personality": "从容，淡定（面对困境），冷静。",
+    "relationship": {
+      "逍遥王": "被其连累一同被抓捕，与其共同面对困境。",
+      "正妻": "被其诬陷冒充“天下第一才女”。"
+    },
+    "background": "被正妻诬陷为冒充“天下第一才女”，其真实身份可能便是如此，或有其他隐秘背景。"
+  },
+  {
+    "name": "丈夫（臭种地的）",
+    "type": "配角",
+    "personality": "（对白中体现不多，可能忍辱负重或性格懦弱，或是深藏不露）",
+    "relationship": {
+      "正妻": "曾是三年的夫妻，被其无情侮辱和抛弃。",
+      "逍遥王": "被正妻视为与逍遥王（被误认为臭叫花子）是“绝配”。"
+    },
+    "background": "曾与正妻有三年夫妻关系，被正妻贬低为“臭种地的”，暗示其身份卑微或落魄。"
+  },
+  {
+    "name": "王府侍卫",
+    "type": "配角",
+    "personality": "忠诚，维护主子尊严，语气强硬，有威严。",
+    "relationship": {
+      "逍遥王": "忠心耿耿的下属，对其身份了如指掌并加以维护。",
+      "正妻": "呵斥其对逍遥王不敬。"
+    },
+    "background": "逍遥王的随从，知晓逍遥王的真实身份及习性，负责保护其安全和尊严。"
+  },
+  {
+    "name": "知府下属",
+    "type": "其他",
+    "personality": "盲从，听命行事。",
+    "relationship": {
+      "正妻": "听从正妻的命令抓捕逍遥王和才女。",
+      "逍遥王/才女": "奉命抓捕的对象。"
+    },
+    "background": "听命于知府大人，并受正妻差遣，代表地方官府势力。"
+  },
+  {
+    "name": "袁大人",
+    "type": "反派",
+    "personality": "贪婪、虚伪、势力、冷酷",
+    "relationship": {
+      "杨老夫人": "行贿者/盟友",
+      "静柔": "父亲",
+      "杨明功": "未来女婿（促成者）",
+      "楚月瑶": "阻碍者/漠视者"
+    },
+    "background": "一位四品官员，利用职权收受贿赂，并为女儿的婚事不择手段。"
+  },
+  {
+    "name": "杨老夫人",
+    "type": "反派",
+    "personality": "势利、狠毒、溺爱、虚荣",
+    "relationship": {
+      "袁大人": "受贿者/盟友",
+      "杨明功": "母亲",
+      "静柔": "未来儿媳",
+      "楚月瑶": "敌对/排斥者"
+    },
+    "background": "杨明功的母亲，为了儿子能成为状元并娶到袁大人之女，不惜行贿并计划休弃原配楚月瑶。"
+  },
+  {
+    "name": "报信人",
+    "type": "其他",
+    "personality": "焦急、惊慌",
+    "relationship": {},
+    "background": "杨府的下人，负责传递消息。"
+  },
+  {
+    "name": "乞丐",
+    "type": "其他",
+    "personality": "不详。",
+    "relationship": {
+      "楚月瑶": "被杨明和静柔用来攻击楚月瑶的工具，污蔑楚月瑶与之为伍。"
+    },
+    "background": "杨明和静柔口中的“臭乞丐”，暗示楚月瑶与社会底层人士来往，以此贬低她。"
+  },
+  {
+    "name": "知府大人",
+    "type": "其他",
+    "personality": "不详。",
+    "relationship": {
+      "杨明": "杨明的靠山和贵人，对其仕途有帮助。"
+    },
+    "background": "地方高官，杨明口中用来炫耀自己背景和地位的证明。"
+  },
+  {
+    "name": "杨母",
+    "type": "反派",
+    "personality": "尖酸刻薄、守旧、势利、贪婪、控制欲强、重男轻女，且言语粗俗",
+    "relationship": {
+      "楚月瑶": "儿媳（极端厌恶、侮辱、试图驱逐）",
+      "杨明功": "儿子（掌控、溺爱）",
+      "袁千金": "盟友（共同针对楚月瑶）"
+    },
+    "background": "杨家的当家主母，对未能传宗接代的儿媳楚月瑶极度不满，认为其是“扫把星”，并试图将其扫地出门并索要费用。"
+  },
+  {
+    "name": "袁千金",
+    "type": "反派",
+    "personality": "嚣张跋扈、自视甚高、报复心强、仗势欺人，心胸狭窄",
+    "relationship": {
+      "楚月瑶": "竞争者/对手（被楚月瑶羞辱，誓要报复）",
+      "杨母": "盟友（利用杨母的势利一同攻击楚月瑶）",
+      "杨明功": "熟人（其高贵身份被杨明功看重）"
+    },
+    "background": "知府小姐，出身高贵，与楚月瑶有旧怨，现试图借杨家之力羞辱楚月瑶，以维护自己的“千金之躯”。"
+  },
+  {
+    "name": "楚月瑶的男性伴侣",
+    "type": "配角",
+    "personality": "沉稳（无对白，但存在感强烈，是楚月瑶强硬态度的背景支撑），是冲突的催化剂",
+    "relationship": {
+      "楚月瑶": "亲密伴侣（是楚月瑶的同行者，被杨家认为是“偷的汉子”，暗示着两人的亲密关系）"
+    },
+    "background": "身份不明，但其出现引起杨家的不满和误解，成为杨母指责楚月瑶“偷人”的证据。"
+  },
+  {
+    "name": "李小姐",
+    "type": "反派",
+    "personality": "谄媚、心机、毒辣、对杨明忠心",
+    "relationship": {
+      "杨明": "爱慕者，称其为“明哥哥”，对其极度维护",
+      "楚月瑶": "情敌（敌对，积极煽动对其的惩罚）",
+      "杨老夫人": "盟友"
+    },
+    "background": "爱慕杨明，与杨老夫人联手陷害楚月瑶，在杨明秘密被揭露后仍维护其体面，并试图对其施暴。"
+  },
+  {
+    "name": "小恒",
+    "type": "配角",
+    "personality": "忠诚、服从",
+    "relationship": {
+      "逍遥王": "主仆关系"
+    },
+    "background": "逍遥王的侍卫或随从。"
+  },
+  {
+    "name": "末将",
+    "type": "配角",
+    "personality": "恭敬、听从",
+    "relationship": {
+      "逍遥王": "君臣关系"
+    },
+    "background": "带领军队前来支援逍遥王的将领。"
+  }
+]
+
+【事件表 event_all.json】
+[
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01"
+    ],
+    "matched_dialogues": "相公我为你隐藏身份，操持家务，只希望祝你早日出人头地，功成名就。",
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明功"
+    ],
+    "emotion_curve": "平静 → 温柔，支持",
+    "event_summary": "隐姓埋名的楚月瑶在田地里辛勤劳作，内心独白展现了她为助丈夫杨明功功成名就而隐藏自身“天下第一才女”身份和不凡武功的默默付出。",
+    "result_summary": "楚月瑶贤妻形象及隐藏实力得到初步展现。",
+    "location": "田地",
+    "keyword": [
+      "隐居",
+      "贤妻",
+      "隐藏身份",
+      "默默付出",
+      "田地",
+      "杨明功"
+    ],
+    "priority": "C",
+    "episode": "1",
+    "segment_uids": [
+      "1"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-02",
+      "SEG-03"
+    ],
+    "matched_dialogues": "想不到小姐种地三年，功力丝毫没有退步。",
+    "main_characters": [
+      "楚月瑶",
+      "叶无涯"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "平静 → 警惕 → 紧张 → 惊诧 → 强大 → 自信",
+    "event_summary": "随从叶无涯骑马突然出现，并以射箭的方式试探楚月瑶的武功，楚月瑶轻松徒手接箭，展现了其深藏不露的武功和强大身份。",
+    "result_summary": "楚月瑶的真实实力得到初步揭示，叶无涯确认其功力未减。",
+    "location": "田地，山路",
+    "keyword": [
+      "随从",
+      "试探",
+      "隐藏实力",
+      "武功",
+      "凤凰虚影",
+      "叶无涯"
+    ],
+    "priority": "B",
+    "episode": "1",
+    "segment_uids": [
+      "2",
+      "3"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-04",
+      "SEG-05",
+      "SEG-06"
+    ],
+    "matched_dialogues": "你这个人怎么这么难缠？小姐你要是再不回去，楚相一定会宰了我的。小姐，当初楚相为了让你躲避朝廷纷争，将您嫁入了杨家。这么多年，您一直害怕杨公子自卑，不敢表露身份。如今，楚相已经让圣上钦点了您相公杨明功为本届的新科状元。圣旨三日后就到青州。",
+    "main_characters": [
+      "楚月瑶",
+      "叶无涯"
+    ],
+    "target_characters": [
+      "楚月瑶",
+      "杨明功",
+      "楚相"
+    ],
+    "emotion_curve": "不耐 → 焦急 → 生气 → 无奈 → 不悦，威胁 → 顺从 → 强硬 → 劝说 → 惊讶 → 质疑",
+    "event_summary": "楚月瑶对叶无涯的突然到来感到不满，叶无涯无奈解释楚相为避朝廷纷争将楚月瑶嫁入杨家并隐藏其身份的苦心，同时告知杨明功已被圣上钦点为新科状元，圣旨三日后将至青州。",
+    "result_summary": "楚月瑶了解了楚相的良苦用心，以及夫君杨明功将高中状元的关键信息，剧情主线背景被揭示。",
+    "location": "田地，山路",
+    "keyword": [
+      "回京催促",
+      "楚相",
+      "朝廷纷争",
+      "隐藏身份",
+      "杨明功",
+      "新科状元",
+      "圣旨"
+    ],
+    "priority": "A",
+    "episode": "1",
+    "segment_uids": [
+      "4",
+      "5",
+      "6"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-07",
+      "SEG-08",
+      "SEG-09"
+    ],
+    "matched_dialogues": "父亲，都是女儿不好。父亲如此为我着想，我要是再不领情，倒是辜负了他的一片苦心。相公你等着，我这就回来给你报喜。三日后，您将以天下第一才女秋韵的身份，在迎凤楼设宴，招待新科状元。行，届时我要和相公亲自表明我的身份。",
+    "main_characters": [
+      "楚月瑶",
+      "叶无涯"
+    ],
+    "target_characters": [
+      "楚相",
+      "杨明功"
+    ],
+    "emotion_curve": "愧疚 → 接受 → 感恩 → 坚定 → 期待 → 自信 → 兴奋",
+    "event_summary": "楚月瑶被叶无涯劝服，深感父亲为自己所做的牺牲，决定不再怄气，并兴奋地借叶无涯的马赶回，计划三日后以“天下第一才女秋韵”的身份在迎凤楼设宴，亲自向夫君杨明功表明真实身份。",
+    "result_summary": "楚月瑶态度转变，积极决定回京并准备在宴会上向杨明功揭露身份，为后续剧情高潮埋下伏笔。",
+    "location": "田地，山路",
+    "keyword": [
+      "回京",
+      "借马",
+      "天下第一才女",
+      "秋韵",
+      "迎凤楼",
+      "设宴",
+      "表明身份",
+      "杨明功"
+    ],
+    "priority": "A",
+    "episode": "1",
+    "segment_uids": [
+      "7",
+      "8",
+      "9"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01",
+      "SEG-02"
+    ],
+    "matched_dialogues": "瞧一瞧，冰糖葫芦，这给我来两个吧，看看，都是新鲜的，来来来，你快看看,这青州城果然如此繁华，怪不得天下第一才女，秋韵姑娘会在此露面，只是不知道",
+    "main_characters": [
+      "顾渊",
+      "小恒"
+    ],
+    "target_characters": [],
+    "emotion_curve": "好奇 → 轻松愉悦 → 平静 → 惊喜 → 期待",
+    "event_summary": "太子殿下顾渊与随从小恒漫步青州城集市，顾渊赞叹青州繁华，并提及天下第一才女秋韵将在此露面。",
+    "result_summary": "顾渊对青州城留下美好印象，并对即将出现的秋韵姑娘抱有期待。",
+    "location": "集市",
+    "keyword": [
+      "青州城",
+      "顾渊",
+      "秋韵",
+      "繁华",
+      "闲逛"
+    ],
+    "priority": "C",
+    "episode": "2",
+    "segment_uids": [
+      "10",
+      "11"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-03"
+    ],
+    "matched_dialogues": "小心,快闪开快闪开",
+    "main_characters": [
+      "顾渊",
+      "楚月瑶",
+      "小恒"
+    ],
+    "target_characters": [
+      "顾渊"
+    ],
+    "emotion_curve": "紧张 → 焦急 → 惊恐 → 惊慌",
+    "event_summary": "楚月瑶骑马生疏在青州城街头疾驰，险些撞到顾渊和小恒，导致顾渊鼻子受伤。",
+    "result_summary": "楚月瑶与顾渊意外相遇，顾渊因此受伤。",
+    "location": "集市",
+    "keyword": [
+      "骑马失控",
+      "意外",
+      "顾渊受伤",
+      "楚月瑶"
+    ],
+    "priority": "B",
+    "episode": "2",
+    "segment_uids": [
+      "12"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-04",
+      "SEG-05"
+    ],
+    "matched_dialogues": "多危险啊，就是，这姑娘好美，好飒,殿下你没事吧，没事,抱歉啊，我好长时间没骑马了，有些生疏了，你没事吧,关键人还这么善良，好飒",
+    "main_characters": [
+      "顾渊",
+      "楚月瑶",
+      "小恒"
+    ],
+    "target_characters": [],
+    "emotion_curve": "惊讶 → 赞叹 → 关心 → 歉意 → 担忧 → 欣赏 → 被吸引",
+    "event_summary": "顾渊虽然受伤，却对楚月瑶的飒爽和真诚道歉心生好感和赞叹，楚月瑶也对自己的鲁莽表示歉意并关心顾渊伤势。",
+    "result_summary": "顾渊对楚月瑶产生了浓厚的兴趣和欣赏之情。",
+    "location": "集市",
+    "keyword": [
+      "顾渊欣赏",
+      "楚月瑶道歉",
+      "好感",
+      "飒爽"
+    ],
+    "priority": "B",
+    "episode": "2",
+    "segment_uids": [
+      "13",
+      "14"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-06",
+      "SEG-07"
+    ],
+    "matched_dialogues": "生疏你骑什么马呀，给人血都撞出来了，你知道撞的，这可是，无妨,这位姑娘想必是有急事，让她先走吧,我告诉你,还是这位公子明事理，不过我楚月瑶,也不是不讲道理的人，这匹马，送你了,楚月瑶好一个奇女子",
+    "main_characters": [
+      "顾渊",
+      "楚月瑶",
+      "小恒"
+    ],
+    "target_characters": [
+      "小恒"
+    ],
+    "emotion_curve": "不满 → 愤怒 → 理解 → 宽容 → 平静 → 赞赏 → 大方 → 自信 → 惊叹 → 赞许",
+    "event_summary": "小恒不满楚月瑶的冒失，顾渊却宽容地替其解围。楚月瑶因此赞赏顾渊的明事理，并大方地将马匹相赠作为赔偿，顾渊对她的豪爽和奇女子风范赞叹不已。",
+    "result_summary": "顾渊与楚月瑶互动良好，顾渊对楚月瑶的豪爽留下深刻印象。",
+    "location": "集市",
+    "keyword": [
+      "顾渊宽容",
+      "楚月瑶赠马",
+      "豪爽",
+      "惺惺相惜"
+    ],
+    "priority": "A",
+    "episode": "2",
+    "segment_uids": [
+      "15",
+      "16"
+    ]
+  },
+  {
+    "event_id": "EVT-05",
+    "segment_ids": [
+      "SEG-08",
+      "SEG-09"
+    ],
+    "matched_dialogues": "什么，我是本届的新科状元，静柔,你说的可是真的,当然是真的,明哥哥你放心吧，那可是我爹，亲自去打点的关系，还能有假",
+    "main_characters": [
+      "杨明功",
+      "袁静柔"
+    ],
+    "target_characters": [],
+    "emotion_curve": "震惊 → 惊喜 → 难以置信 → 得意 → 喜悦 → 兴奋 → 自信 → 骄傲",
+    "event_summary": "杨明功得知自己高中新科状元，欣喜若狂，袁静柔则骄傲地透露是其父亲打点关系才让他得此殊荣。",
+    "result_summary": "杨明功确认状元身份，并得知此乃袁父权势所为，为后续剧情埋下伏笔。",
+    "location": "室内",
+    "keyword": [
+      "杨明功状元",
+      "袁静柔",
+      "科举舞弊",
+      "权势"
+    ],
+    "priority": "B",
+    "episode": "2",
+    "segment_uids": [
+      "17",
+      "18"
+    ]
+  },
+  {
+    "event_id": "EVT-06",
+    "segment_ids": [
+      "SEG-10",
+      "SEG-11"
+    ],
+    "matched_dialogues": "我可是听说了，天下第一才女，秋韵姑娘，要在迎凤楼，亲自设宴款待你，你可不能，静柔,你放心，我的心里啊只有你，只要你好好对我，我父亲定然，不会亏待你的，等圣旨一到呀，我就立马休了，那野妇，同你成亲",
+    "main_characters": [
+      "杨明功",
+      "袁静柔"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "兴奋 → 期待 → 提醒 → 暗示 → 深情 → 虚伪 → 算计",
+    "event_summary": "袁静柔提及天下第一才女秋韵将设宴款待杨明功，杨明功为攀附袁家权势，向袁静柔承诺等圣旨一到，就立刻休弃现有伴侣“野妇”，并与袁静柔成亲。",
+    "result_summary": "杨明功为功利目的决定抛弃原配楚月瑶，揭示其虚伪和无情，并为后续核心冲突埋下引线。",
+    "location": "室内",
+    "keyword": [
+      "抛弃糟糠",
+      "功利主义",
+      "休妻",
+      "背叛",
+      "秋韵"
+    ],
+    "priority": "A",
+    "episode": "2",
+    "segment_uids": [
+      "19",
+      "20"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01"
+    ],
+    "matched_dialogues": "相公我回你们这是你… 你怎么现在就回来了你是谁",
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明",
+      "袁小姐"
+    ],
+    "emotion_curve": "喜悦、期待 → 震惊、困惑、受伤",
+    "event_summary": "楚月瑶喜悦归家，却意外撞见丈夫杨明与陌生女子（袁小姐）在家中，她的喜悦瞬间被眼前的景象击碎，转为震惊和困惑，质问对方身份。",
+    "result_summary": "楚月瑶初步发现丈夫的出轨行径，内心受到极大冲击，剧情冲突由此展开。",
+    "location": "室内",
+    "keyword": [
+      "归家",
+      "出轨",
+      "撞破",
+      "震惊",
+      "困惑"
+    ],
+    "priority": "A",
+    "episode": "3",
+    "segment_uids": [
+      "21"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-02"
+    ],
+    "matched_dialogues": "为何要同我相公做这般见不得人的勾当住口袁小姐乃青州知府袁大人的千金岂是你一个乡野妇人能够议论的青州知府",
+    "main_characters": [
+      "袁小姐",
+      "杨明"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "不屑、挑衅 → 愤怒、阻止 → 傲慢、得意 → 震惊、委屈、压抑、受伤",
+    "event_summary": "袁小姐毫不掩饰地挑衅楚月瑶，并由杨明亲口揭示其知府千金的尊贵身份，对楚月瑶进行言语羞辱，称其为“乡野妇人”，使楚月瑶倍感屈辱和压抑。",
+    "result_summary": "楚月瑶遭受严重羞辱，但情绪开始由委屈转向压抑，为后续的反击埋下伏笔。",
+    "location": "室内",
+    "keyword": [
+      "羞辱",
+      "挑衅",
+      "知府千金",
+      "乡野妇人",
+      "委屈"
+    ],
+    "priority": "B",
+    "episode": "3",
+    "segment_uids": [
+      "22"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-03"
+    ],
+    "matched_dialogues": "区区青州知府我还不放在眼里你要干什么",
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "袁小姐",
+      "杨明"
+    ],
+    "emotion_curve": "压抑、受伤 → 愤怒、轻蔑 → 惊慌、惊恐",
+    "event_summary": "面对杨明和袁小姐的羞辱，楚月瑶情绪爆发，霸气回怼“区区青州知府，我还不放在眼里”，并采取行动，使得杨明和袁小姐惊慌失措。",
+    "result_summary": "楚月瑶展现出不同寻常的底气和隐藏身份的迹象，局势开始逆转，引人期待。",
+    "location": "室内",
+    "keyword": [
+      "霸气反击",
+      "轻蔑",
+      "身份暗示",
+      "惊慌",
+      "反转"
+    ],
+    "priority": "A",
+    "episode": "3",
+    "segment_uids": [
+      "23"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-04",
+      "SEG-05",
+      "SEG-06"
+    ],
+    "matched_dialogues": "明哥哥 事到如今了，你就别再瞒着这个蠢妇了相公她说这话是什么意思楚月瑶既然你已经看见了，那我也就不瞒你了如今我已是本届的新科状元而你只不过是个乡野村妇你已经配不上我了拿上休书离开杨家你要休我对你没听错我要休了你",
+    "main_characters": [
+      "杨明",
+      "楚月瑶",
+      "袁小姐"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "挑衅、得意 → 轻蔑、得意 → 困惑、受伤、期待 → 平静、摊牌、得意、傲慢 → 轻蔑、厌恶、决绝 → 震惊、难以置信、悲伤 → 肯定、无情",
+    "event_summary": "袁小姐进一步挑唆，杨明最终向楚月瑶摊牌，得意洋洋地宣布自己已高中状元，并以此为由彻底否定和羞辱楚月瑶，称她为“乡野村妇”，不配再做他的妻子，并当众递上休书，决绝地命令楚月瑶离开杨家。",
+    "result_summary": "楚月瑶被杨明无情休弃，婚姻破裂，剧情达到高潮，为后续楚月瑶的复仇和身份全面揭露奠定基础。",
+    "location": "室内",
+    "keyword": [
+      "状元",
+      "休妻",
+      "背叛",
+      "乡野村妇",
+      "无情",
+      "羞辱",
+      "绝望"
+    ],
+    "priority": "A",
+    "episode": "3",
+    "segment_uids": [
+      "24",
+      "25",
+      "26"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01",
+      "SEG-02",
+      "SEG-03",
+      "SEG-04"
+    ],
+    "matched_dialogues": [
+      "枉我三年来种地 卖菜供你寒窗苦读 如今你却是要休了我",
+      "一个臭种地的 还妄想跟现今的 状元郎在一起 可真是痴心妄想",
+      "没有我 你还真以为你能 当上这个状元",
+      "杨明功 三年来 若不是我在背后 一直为杨家默默运作 杨家怎么可能 有今日之局面",
+      "你以为你是天下第一才女吗 你不过就是个乡野村妇罢了"
+    ],
+    "main_characters": [
+      "楚月瑶",
+      "杨明功"
+    ],
+    "target_characters": [
+      "袁静柔"
+    ],
+    "emotion_curve": "楚月瑶：悲愤→质问→受伤→愤怒；杨明功/袁静柔：嘲讽→得意→轻蔑→贬低",
+    "event_summary": "楚月瑶控诉杨明功忘恩负义欲休妻，并强调自己对杨家的贡献，但遭到杨明功和袁静柔的持续嘲讽与羞辱，被贬为“乡野村妇”。",
+    "result_summary": "楚月瑶在受到极大羞辱后，内心积蓄力量，情绪由悲愤转为准备反击的坚定。",
+    "location": "传统中式房间",
+    "keyword": [
+      "休妻",
+      "背叛",
+      "嘲讽",
+      "羞辱",
+      "乡野村妇"
+    ],
+    "priority": "B",
+    "episode": "4",
+    "segment_uids": [
+      "27",
+      "28",
+      "29",
+      "30"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-05",
+      "SEG-06"
+    ],
+    "matched_dialogues": [
+      "你说得对 我还真就是 天下第一才女",
+      "今天不是你休了我 而是我休了你",
+      "你这新科状元 也别想当了"
+    ],
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明功",
+      "袁静柔"
+    ],
+    "emotion_curve": "楚月瑶：愤怒→报复→骄傲→自信→决绝→威胁；杨明功：震惊→痛苦→惊愕→愤怒",
+    "event_summary": "楚月瑶在被杨明功羞辱后，愤怒地将草编物掷向杨明功进行反击，并霸气宣称自己就是“天下第一才女”，随即宣布休夫，并威胁要让杨明功失去状元之位。",
+    "result_summary": "楚月瑶成功反击并首次揭示真实身份，彻底夺回局面主导权，将主动权从杨明功手中拿走。",
+    "location": "传统中式房间",
+    "keyword": [
+      "反击",
+      "身份揭露",
+      "天下第一才女",
+      "休夫",
+      "威胁"
+    ],
+    "priority": "A",
+    "episode": "4",
+    "segment_uids": [
+      "31",
+      "32"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-07",
+      "SEG-08"
+    ],
+    "matched_dialogues": [
+      "明哥哥的状元郎 是我父亲疏通 关系钦点的",
+      "天下第一才女 秋韵姑娘 都准备在迎凤楼 亲自设宴 款待明哥哥呢",
+      "区区一个青州知府袁帆 也配染指科举 真是笑话"
+    ],
+    "main_characters": [
+      "袁静柔",
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明功"
+    ],
+    "emotion_curve": "杨明功：愤怒→不甘；袁静柔：得意→炫耀；楚月瑶：震惊→愤恨→极度愤怒→不屑→鄙夷",
+    "event_summary": "杨明功被楚月瑶反击后仍感不甘，袁静柔则得意地揭露杨明功的状元头衔是其父袁帆舞弊钦点，并提及“天下第一才女秋韵”将设宴款待杨明功，而楚月瑶对此舞弊行径表现出极度不屑。",
+    "result_summary": "科举舞弊的真相被揭露，为后续剧情中楚月瑶揭发舞弊埋下伏笔；同时，“秋韵”身份的出现进一步强化了楚月瑶身份的神秘感和即将到来的反转。",
+    "location": "传统中式房间",
+    "keyword": [
+      "科举舞弊",
+      "内幕",
+      "秋韵",
+      "设宴",
+      "反转伏笔",
+      "嘲讽"
+    ],
+    "priority": "A",
+    "episode": "4",
+    "segment_uids": [
+      "33",
+      "34"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01"
+    ],
+    "matched_dialogues": "闭嘴 你竟然敢直呼 知府大人的名讳看你就是找死勾引人夫不知廉耻你沉迷女色不思进取反了反了你竟然敢打我",
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "target_characters": [
+      "杨明功的管家",
+      "袁静柔"
+    ],
+    "emotion_curve": "杨明功的管家：愤怒 → 震惊 → 愤慨；袁静柔：愤怒 → 怨恨 → 挑衅 → 痛苦；杨秀秀：愤怒 → 指责",
+    "event_summary": "杨明功的管家与袁静柔、杨秀秀在室内爆发激烈冲突，互相指责对方品行不端并伴随肢体接触。",
+    "result_summary": "三方情绪激动，冲突升级，杨明功的管家和袁静柔均有受伤表现。",
+    "location": "室内房间",
+    "keyword": [
+      "争吵",
+      "冲突",
+      "肢体冲突",
+      "道德指责"
+    ],
+    "priority": "A",
+    "episode": "5",
+    "segment_uids": [
+      "35"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-02"
+    ],
+    "matched_dialogues": "我今天就将你押到知府大牢 让你知道不知死活的下场诶嗯你也配滚开呃我今天就让你看清楚我袁静柔想收拾你 谁又能救得了你",
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "target_characters": [
+      "杨秀秀",
+      "杨明功的管家"
+    ],
+    "emotion_curve": "杨明功的管家：威胁 → 狂怒；袁静柔：自信 → 傲慢；杨秀秀：不屑",
+    "event_summary": "杨明功的管家威胁要将杨秀秀送入大牢，而袁静柔则展露嚣张气焰，声称无人能干预她。",
+    "result_summary": "袁静柔态度强硬，准备发起新一轮攻击，冲突持续升级。",
+    "location": "室内房间",
+    "keyword": [
+      "威胁",
+      "挑战",
+      "嚣张",
+      "冲突升级"
+    ],
+    "priority": "A",
+    "episode": "5",
+    "segment_uids": [
+      "36"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-03"
+    ],
+    "matched_dialogues": "啊!就你这三脚猫的功夫 还想偷袭我",
+    "main_characters": [
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "target_characters": [
+      "袁静柔"
+    ],
+    "emotion_curve": "袁静柔：攻击性 → 惊讶 → 愤怒 → 失败 → 挣扎；杨秀秀：胜利 → 不屑",
+    "event_summary": "袁静柔试图用发簪偷袭杨秀秀，却反被杨秀秀轻松制服并摔倒在地。",
+    "result_summary": "袁静柔攻击失败，愤怒和屈辱感加剧，杨秀秀展现出高超的实力。",
+    "location": "室内房间",
+    "keyword": [
+      "反击",
+      "击败",
+      "羞辱",
+      "武力"
+    ],
+    "priority": "B",
+    "episode": "5",
+    "segment_uids": [
+      "37"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-04"
+    ],
+    "matched_dialogues": "应该就是这里了",
+    "main_characters": [
+      "长发男子",
+      "灰袍男子"
+    ],
+    "target_characters": [],
+    "emotion_curve": "长发男子：中性 → 沉思 → 好奇；灰袍男子：中性",
+    "event_summary": "长发男子与灰袍男子抵达目的地，似乎正在观察周围环境。",
+    "result_summary": "新角色登场，为后续剧情埋下伏笔。",
+    "location": "庭院/户外",
+    "keyword": [
+      "抵达",
+      "观察",
+      "新角色"
+    ],
+    "priority": "C",
+    "episode": "5",
+    "segment_uids": [
+      "38"
+    ]
+  },
+  {
+    "event_id": "EVT-05",
+    "segment_ids": [
+      "SEG-05"
+    ],
+    "matched_dialogues": "",
+    "main_characters": [
+      "杨明功的管家"
+    ],
+    "target_characters": [],
+    "emotion_curve": "自负 → 愤怒 → 攻击性",
+    "event_summary": "杨明功的管家再次拿起棍子，怒气冲冲地准备发起攻击。",
+    "result_summary": "管家仍处于高度攻击性状态，预示冲突将继续。",
+    "location": "室内房间",
+    "keyword": [
+      "攻击准备",
+      "愤怒"
+    ],
+    "priority": "C",
+    "episode": "5",
+    "segment_uids": [
+      "39"
+    ]
+  },
+  {
+    "event_id": "EVT-06",
+    "segment_ids": [
+      "SEG-06"
+    ],
+    "matched_dialogues": "姑娘小心啊!",
+    "main_characters": [
+      "长发男子",
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀"
+    ],
+    "target_characters": [
+      "杨秀秀",
+      "袁静柔"
+    ],
+    "emotion_curve": "长发男子：警觉 → 担忧 → 紧急 → 保护；杨明功的管家：攻击性；袁静柔：疼痛/震惊；杨秀秀：惊讶",
+    "event_summary": "长发男子及时冲入室内，在杨明功的管家即将攻击杨秀秀之际将其救下，过程中袁静柔也被击中。",
+    "result_summary": "杨秀秀得救，长发男子展现英勇，袁静柔意外受伤。",
+    "location": "室内房间",
+    "keyword": [
+      "英雄救美",
+      "介入",
+      "受伤"
+    ],
+    "priority": "A",
+    "episode": "5",
+    "segment_uids": [
+      "40"
+    ]
+  },
+  {
+    "event_id": "EVT-07",
+    "segment_ids": [
+      "SEG-07"
+    ],
+    "matched_dialogues": "",
+    "main_characters": [
+      "长发男子",
+      "杨秀秀"
+    ],
+    "target_characters": [],
+    "emotion_curve": "英勇 → 保护 → 深情 → 亲密",
+    "event_summary": "获救后的杨秀秀被长发男子深情拥抱，两人之间流露出亲密无间的感情。",
+    "result_summary": "杨秀秀与长发男子确认彼此关系，情感升温。",
+    "location": "室内房间",
+    "keyword": [
+      "拥抱",
+      "亲密",
+      "感情"
+    ],
+    "priority": "B",
+    "episode": "5",
+    "segment_uids": [
+      "41"
+    ]
+  },
+  {
+    "event_id": "EVT-08",
+    "segment_ids": [
+      "SEG-08"
+    ],
+    "matched_dialogues": "",
+    "main_characters": [
+      "长发男子",
+      "杨秀秀"
+    ],
+    "target_characters": [],
+    "emotion_curve": "杨秀秀：情绪化 → 含泪 → 心烦意乱；长发男子：温柔 → 安慰 → 关心",
+    "event_summary": "杨秀秀在长发男子的怀中情绪激动，泪光闪烁，长发男子温柔地安慰她。",
+    "result_summary": "长发男子通过行动表达了对杨秀秀的深切关怀。",
+    "location": "室内房间",
+    "keyword": [
+      "安慰",
+      "情感支持",
+      "悲伤"
+    ],
+    "priority": "C",
+    "episode": "5",
+    "segment_uids": [
+      "42"
+    ]
+  },
+  {
+    "event_id": "EVT-09",
+    "segment_ids": [
+      "SEG-09"
+    ],
+    "matched_dialogues": "多谢公子出手搭救姑娘真的是你",
+    "main_characters": [
+      "长发男子",
+      "杨秀秀"
+    ],
+    "target_characters": [],
+    "emotion_curve": "杨秀秀：感激 → 害羞；长发男子：如释重负 → 高兴 → 满足 → 倾心 → 深情",
+    "event_summary": "杨秀秀感谢长发男子的搭救，长发男子欣喜地认出她，两人之间情意绵绵。",
+    "result_summary": "确认彼此身份，旧情复燃，关系更加亲密。",
+    "location": "室内房间",
+    "keyword": [
+      "认出",
+      "感激",
+      "旧识",
+      "爱情"
+    ],
+    "priority": "B",
+    "episode": "5",
+    "segment_uids": [
+      "43"
+    ]
+  },
+  {
+    "event_id": "EVT-10",
+    "segment_ids": [
+      "SEG-10"
+    ],
+    "matched_dialogues": "静柔我不是故意的你们在干什么还不赶紧把我扶起来啊",
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔"
+    ],
+    "target_characters": [
+      "杨秀秀",
+      "长发男子"
+    ],
+    "emotion_curve": "袁静柔：哭泣 → 受伤 → 疼痛 → 愤怒 → 命令；杨明功的管家：恐慌 → 愤怒 → 困惑 → 顺从",
+    "event_summary": "受伤的袁静柔哭泣不已，杨明功的管家恐慌地安抚她，并愤怒地质问杨秀秀和长发男子。",
+    "result_summary": "袁静柔的受伤引发管家的愤怒与困惑，新的冲突即将爆发。",
+    "location": "室内房间",
+    "keyword": [
+      "受伤",
+      "恐慌",
+      "愤怒",
+      "质问"
+    ],
+    "priority": "B",
+    "episode": "5",
+    "segment_uids": [
+      "44"
+    ]
+  },
+  {
+    "event_id": "EVT-11",
+    "segment_ids": [
+      "SEG-11"
+    ],
+    "matched_dialogues": "好啊你们这一对狗男女居然敢公开卿卿我我你这个女人你这个贱妇，你居然敢背着我偷汉子闭上你的狗嘴少拿你们的脏事，出来丢人现眼",
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀",
+      "长发男子"
+    ],
+    "target_characters": [
+      "杨秀秀",
+      "长发男子"
+    ],
+    "emotion_curve": "杨明功的管家：狂怒 → 愤怒 → 指责；袁静柔：狂怒；杨秀秀：愤怒 → 厌恶",
+    "event_summary": "杨明功的管家和袁静柔狂怒地指责杨秀秀和长发男子为“狗男女”，杨秀秀则厌恶地反驳。",
+    "result_summary": "双方爆发激烈言语冲突，矛盾公开化，杨秀秀和长发男子面临污蔑。",
+    "location": "室内房间",
+    "keyword": [
+      "辱骂",
+      "诬陷",
+      "言语冲突",
+      "道德谴责"
+    ],
+    "priority": "A",
+    "episode": "5",
+    "segment_uids": [
+      "45"
+    ]
+  },
+  {
+    "event_id": "EVT-12",
+    "segment_ids": [
+      "SEG-12"
+    ],
+    "matched_dialogues": "大家快来看呐 大家快来看呐这个贱妇，居然背着我偷汉子被我休了杨明功你再胡说大家都听见了吧这个贱妇，现下恼羞成怒了",
+    "main_characters": [
+      "杨明功的管家",
+      "袁静柔",
+      "杨秀秀",
+      "长发男子"
+    ],
+    "target_characters": [
+      "杨秀秀",
+      "长发男子"
+    ],
+    "emotion_curve": "杨明功的管家：夸张 → 指责；杨秀秀：愤怒 → 防御；袁静柔：紧张 → 受伤",
+    "event_summary": "杨明功的管家跑到门口高声呼喊，试图煽动围观群众，公开诬陷杨秀秀“偷汉子”并扬言休妻，杨秀秀愤怒反驳。",
+    "result_summary": "杨秀秀和长发男子被公然羞辱，剧情达到高潮，引来更多围观者。",
+    "location": "室内房间",
+    "keyword": [
+      "煽动",
+      "诬陷",
+      "公开羞辱",
+      "高潮"
+    ],
+    "priority": "A",
+    "episode": "5",
+    "segment_uids": [
+      "46"
+    ]
+  },
+  {
+    "event_id": "EVT-13",
+    "segment_ids": [
+      "SEG-13"
+    ],
+    "matched_dialogues": "这少年模样俊俏居然喜欢有夫之妇定是杨家媳妇水性杨花勾引了小白脸就是杨家媳妇不知廉耻早就该休了",
+    "main_characters": [
+      "围观群众",
+      "杨秀秀",
+      "长发男子"
+    ],
+    "target_characters": [
+      "杨秀秀",
+      "长发男子"
+    ],
+    "emotion_curve": "围观群众：八卦 → 惊讶 → 不赞同 → 指责 → 肯定 → 坚定；杨秀秀：愤怒 → 挑衅",
+    "event_summary": "被煽动的围观群众对杨秀秀和长发男子指指点点，指责杨秀秀“水性杨花”、“不知廉耻”，并认为她早该被休弃。",
+    "result_summary": "舆论压力全面爆发，杨秀秀和长发男子陷入困境，杨秀秀面对指责愤怒不屈。",
+    "location": "室内房间",
+    "keyword": [
+      "舆论攻击",
+      "羞辱",
+      "道德绑架",
+      "困境"
+    ],
+    "priority": "A",
+    "episode": "5",
+    "segment_uids": [
+      "47"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01"
+    ],
+    "matched_dialogues": "你我夫妻三年，我竟没有想到你是如此龌龊阴暗之人；一个臭种地的，一个臭叫花子，当真是绝配",
+    "main_characters": [
+      "女主",
+      "富商男",
+      "富商女"
+    ],
+    "target_characters": [
+      "富商男",
+      "男主",
+      "女主"
+    ],
+    "emotion_curve": "愤怒 → 嘲讽",
+    "event_summary": "女主指责前夫富商男的阴暗面，富商女则蔑视地嘲讽女主和她身边的男主。",
+    "result_summary": "言语冲突爆发，富商女对男主和女主进行人身攻击。",
+    "location": "客栈大堂",
+    "keyword": [
+      "指责",
+      "嘲讽",
+      "冲突"
+    ],
+    "priority": "B",
+    "episode": "6",
+    "segment_uids": [
+      "48"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-02"
+    ],
+    "matched_dialogues": "放肆！居然敢以下犯上！侮辱逍遥王，死罪！",
+    "main_characters": [
+      "护卫"
+    ],
+    "target_characters": [
+      "富商女",
+      "男主"
+    ],
+    "emotion_curve": "愤怒 → 威胁",
+    "event_summary": "一位侍卫突然出现，严厉呵斥富商女侮辱逍遥王是死罪，揭示了男主可能是逍遥王的身份。",
+    "result_summary": "逍遥王的身份首次被间接提及，引起在场人物的注意和震撼。",
+    "location": "客栈大堂",
+    "keyword": [
+      "身份揭示",
+      "威胁",
+      "逍遥王"
+    ],
+    "priority": "A",
+    "episode": "6",
+    "segment_uids": [
+      "49"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-03"
+    ],
+    "matched_dialogues": "他是逍遥王啊？你是那个不喜朝廷纷争，游历江湖的逍遥王？",
+    "main_characters": [
+      "女主"
+    ],
+    "target_characters": [
+      "男主"
+    ],
+    "emotion_curve": "震惊 → 惊讶",
+    "event_summary": "女主听到侍卫的话后，对男主的真实身份感到震惊并向其求证。",
+    "result_summary": "女主对男主的身份产生了巨大的疑问和新的认识，推动两人关系发展。",
+    "location": "客栈大堂",
+    "keyword": [
+      "身份疑问",
+      "震惊",
+      "求证"
+    ],
+    "priority": "B",
+    "episode": "6",
+    "segment_uids": [
+      "50"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-04"
+    ],
+    "matched_dialogues": "你个臭叫花子，装什么装！你要是逍遥王，那我还是王妃呢！一个冒充天下第一才女，一个冒充逍遥王，简直是不知死活，把这两个人给我抓起来，交给知府大人发落！",
+    "main_characters": [
+      "富商女",
+      "富商男"
+    ],
+    "target_characters": [
+      "男主",
+      "女主"
+    ],
+    "emotion_curve": "嘲讽 → 愤怒",
+    "event_summary": "富商夫妇不相信男主的逍遥王身份，继续嘲讽并诬陷男主和女主，命令手下将二人抓捕交给知府发落。",
+    "result_summary": "富商夫妇的嚣张气焰达到顶峰，对男主和女主造成新的困境。",
+    "location": "客栈大堂",
+    "keyword": [
+      "诬陷",
+      "抓捕",
+      "权力滥用",
+      "冲突升级"
+    ],
+    "priority": "B",
+    "episode": "6",
+    "segment_uids": [
+      "51"
+    ]
+  },
+  {
+    "event_id": "EVT-05",
+    "segment_ids": [
+      "SEG-05"
+    ],
+    "matched_dialogues": "对，交给知府大人发落！还有没有王法？",
+    "main_characters": [
+      "围观群众",
+      "护卫"
+    ],
+    "target_characters": [
+      "富商男",
+      "富商女",
+      "男主",
+      "女主"
+    ],
+    "emotion_curve": "幸灾乐祸 → 紧张",
+    "event_summary": "围观群众一部分附和富商夫妇，要求将男主和女主交给知府，而护卫的行动和另一部分群众的质疑，使现场气氛陷入紧张对峙。",
+    "result_summary": "围观群众的态度两极分化，现场形成紧张的对峙局面。",
+    "location": "客栈大堂",
+    "keyword": [
+      "围观",
+      "舆论",
+      "对峙",
+      "紧张"
+    ],
+    "priority": "C",
+    "episode": "6",
+    "segment_uids": [
+      "52"
+    ]
+  },
+  {
+    "event_id": "EVT-06",
+    "segment_ids": [
+      "SEG-06"
+    ],
+    "matched_dialogues": "抱歉今日之事连累你了。无妨。",
+    "main_characters": [
+      "女主",
+      "男主"
+    ],
+    "target_characters": [],
+    "emotion_curve": "歉意 → 平静",
+    "event_summary": "面对困境，女主向男主表达歉意，男主则平静地回应“无妨”，并给予女主安慰。",
+    "result_summary": "两人的情感连接加深，男主展现出对女主的保护和支持。",
+    "location": "客栈大堂",
+    "keyword": [
+      "安慰",
+      "情感联结",
+      "支持"
+    ],
+    "priority": "C",
+    "episode": "6",
+    "segment_uids": [
+      "53"
+    ]
+  },
+  {
+    "event_id": "EVT-07",
+    "segment_ids": [
+      "SEG-07"
+    ],
+    "matched_dialogues": "今天，我倒要看看，谁敢动我！",
+    "main_characters": [
+      "男主"
+    ],
+    "target_characters": [
+      "富商男",
+      "富商女",
+      "护卫",
+      "围观群众"
+    ],
+    "emotion_curve": "严肃 → 霸气",
+    "event_summary": "男主气势骤变，以霸气宣言“我倒要看看，谁敢动我”震慑全场。",
+    "result_summary": "男主正式亮出身份，其强大的气场让在场所有人感到震惊和威慑。",
+    "location": "客栈大堂",
+    "keyword": [
+      "霸气",
+      "身份亮明",
+      "震慑",
+      "权力展现"
+    ],
+    "priority": "A",
+    "episode": "6",
+    "segment_uids": [
+      "54"
+    ]
+  },
+  {
+    "event_id": "EVT-08",
+    "segment_ids": [
+      "SEG-08",
+      "SEG-09"
+    ],
+    "matched_dialogues": "听闻逍遥王生性散漫，不喜约束，故而离开朝堂，四处游山玩水。谁也不知道他长什么样。这臭叫花子，看着气度不凡，难不成真是逍遥王？",
+    "main_characters": [
+      "富商男",
+      "富商女",
+      "男主"
+    ],
+    "target_characters": [
+      "男主"
+    ],
+    "emotion_curve": "震惊 → 思考 → 狐疑 → 恐惧",
+    "event_summary": "在男主霸气宣言后，富商夫妇震惊，富商男开始回忆逍遥王特征，男主则暗示其身份神秘，最终富商男从狐疑到恐惧，逐渐意识到男主可能真是逍遥王。",
+    "result_summary": "富商男对男主真实身份的怀疑加深，并开始产生恐惧，预示着其地位将受到严重威胁。",
+    "location": "客栈大堂",
+    "keyword": [
+      "身份揭示",
+      "震惊",
+      "回忆",
+      "恐惧",
+      "怀疑"
+    ],
+    "priority": "A",
+    "episode": "6",
+    "segment_uids": [
+      "55",
+      "56"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01",
+      "SEG-02",
+      "SEG-03",
+      "SEG-04"
+    ],
+    "matched_dialogues": "袁大人，这次多亏了您犬子才被选为新科的状元这些许银两不成敬意，还望大人您笑纳我区区一个四品官，哪能管得了新科状元这么大的事不过这么多银子不收白不收杨老夫人言重了小女静柔本来就心仪杨公子，本官自当相助只是那个乡野妇人楚月瑶大人您放心，老身回去，就让我儿子休了那女人，绝不让她踏进杨家半步那就好",
+    "main_characters": [
+      "杨老夫人",
+      "袁大人"
+    ],
+    "target_characters": [
+      "杨明功",
+      "静柔",
+      "楚月瑶"
+    ],
+    "emotion_curve": "喜悦，感激 → 讨好，期待 → 假装谦虚，得意 → 紧张，担忧 → 满意，喜悦 → 平静，谦逊 → 从容，自信 → 喜悦转为疑惑 → 震惊，坚定",
+    "event_summary": "杨老夫人为确保儿子杨明功的状元之位和与静柔的婚事，向袁大人行贿并达成共识，袁大人承诺促成婚事，杨老夫人则保证休弃楚月瑶。",
+    "result_summary": "杨老夫人与袁大人成功勾结，为杨明功的仕途和婚事铺路，并计划将楚月瑶扫地出门。",
+    "location": "室内",
+    "keyword": [
+      "行贿",
+      "状元",
+      "婚事",
+      "休妻",
+      "勾结"
+    ],
+    "priority": "A",
+    "episode": "7",
+    "segment_uids": [
+      "57",
+      "58",
+      "59",
+      "60"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-05"
+    ],
+    "matched_dialogues": "不好了不好了！杨公子和逍遥王在杨家起了冲突！什么！你说的杨公子可是我儿子杨明功",
+    "main_characters": [
+      "袁大人",
+      "杨老夫人",
+      "小厮"
+    ],
+    "target_characters": [
+      "杨明功",
+      "逍遥王"
+    ],
+    "emotion_curve": "惊讶，恐慌，担忧 → 震惊，愤怒",
+    "event_summary": "杨老夫人与袁大人密谋之际，小厮急匆匆闯入，报告杨明功与逍遥王在杨家发生了冲突，令二人大惊失色。",
+    "result_summary": "杨老夫人和袁大人的密谋被突如其来的冲突消息打断，预示着他们原定的计划将面临变数。",
+    "location": "室内",
+    "keyword": [
+      "急报",
+      "冲突",
+      "逍遥王",
+      "惊慌"
+    ],
+    "priority": "A",
+    "episode": "7",
+    "segment_uids": [
+      "61"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-06"
+    ],
+    "matched_dialogues": "楚月瑶！你一个臭种地的，怎么可能认识逍遥王，还愣着干什么，还不给我上！让人看了笑话",
+    "main_characters": [
+      "静柔",
+      "楚月瑶",
+      "杨明功",
+      "逍遥王随从"
+    ],
+    "target_characters": [
+      "楚月瑶",
+      "杨明功"
+    ],
+    "emotion_curve": "愤怒，不屑，命令 → 打斗，愤怒 → 愤怒，不甘 → 担忧，紧张",
+    "event_summary": "静柔辱骂楚月瑶，质疑她与逍遥王的关系，并命令随从攻击，导致杨明功在冲突中被逍遥王的随从打倒。",
+    "result_summary": "杨明功在冲突中被打倒，静柔的嚣张跋扈暴露无遗，冲突进一步升级。",
+    "location": "室内",
+    "keyword": [
+      "辱骂",
+      "攻击",
+      "冲突",
+      "打斗",
+      "杨明功被打"
+    ],
+    "priority": "B",
+    "episode": "7",
+    "segment_uids": [
+      "62"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-07"
+    ],
+    "matched_dialogues": "殿下，你没事吧？这二人屡次以下犯上如何处置，还请殿下指示",
+    "main_characters": [
+      "逍遥王",
+      "逍遥王随从"
+    ],
+    "target_characters": [
+      "杨明功",
+      "静柔"
+    ],
+    "emotion_curve": "忠诚，担忧 → 请示，期待指示",
+    "event_summary": "逍遥王随从在冲突结束后，向逍遥王请示如何处置杨明功和静柔等屡次以下犯上之人。",
+    "result_summary": "逍遥王即将做出决定，进一步影响杨明功和静柔的命运，预示着逍遥王将介入此事件。",
+    "location": "室内",
+    "keyword": [
+      "请示",
+      "处置",
+      "逍遥王",
+      "忠诚"
+    ],
+    "priority": "B",
+    "episode": "7",
+    "segment_uids": [
+      "63"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01",
+      "SEG-02"
+    ],
+    "matched_dialogues": "杨明: 拿这些银子 带着你的臭乞丐赶紧走。 我们之间 已经是天壤之别了。赶紧拿着银子 离开杨家。",
+    "main_characters": [
+      "杨明",
+      "静柔"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "杨明：愤怒、鄙夷→傲慢、强硬",
+    "event_summary": "新科状元杨明联手未婚妻静柔，用金钱和言语羞辱被休弃的楚月瑶，强调两人身份地位的巨大差距，并傲慢地命令楚月瑶带着钱离开杨家。",
+    "result_summary": "楚月瑶面对羞辱保持平静，并未被动接受，为后续的反击埋下伏笔。",
+    "location": "传统中国建筑室内",
+    "keyword": [
+      "羞辱",
+      "驱逐",
+      "金钱",
+      "身份地位",
+      "天壤之别"
+    ],
+    "priority": "B",
+    "episode": "8",
+    "segment_uids": [
+      "64",
+      "65"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-03",
+      "SEG-04"
+    ],
+    "matched_dialogues": "楚月瑶: 我楚月瑶有的是银子, 你这点破银子 还是自己留着吧。 我楚月瑶最不缺的 就是银子。",
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明",
+      "静柔",
+      "少年"
+    ],
+    "emotion_curve": "楚月瑶：悲伤→坚定→不屑→平静→戏谑→自信",
+    "event_summary": "面对杨明和静柔的羞辱，楚月瑶情绪从悲伤转为坚定，她霸气拒绝了杨明扔出的银两，并自信地宣称自己最不缺的就是银子，反击了静柔对其和伴侣财富的嘲讽。",
+    "result_summary": "楚月瑶展现出隐藏的强大底气和财富，初步逆转了被动局面，令杨明和静柔震惊。",
+    "location": "传统中国建筑室内",
+    "keyword": [
+      "反击",
+      "财富",
+      "自信",
+      "蔑视",
+      "身份揭示"
+    ],
+    "priority": "A",
+    "episode": "8",
+    "segment_uids": [
+      "66",
+      "67"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-05",
+      "SEG-06"
+    ],
+    "matched_dialogues": "杨明: 我和静柔 不日便要成婚, 有知府大人照拂。我这个新科状元的仕途 自会一帆风顺, 日后 更是享不尽的荣华富贵。只可惜啊, 这一切都与你无关。",
+    "main_characters": [
+      "杨明",
+      "静柔"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "杨明：得意→自豪→嘲讽 → 静柔：得意",
+    "event_summary": "杨明和静柔持续得意洋洋地炫耀他们即将到来的婚事、知府大人的庇护以及新科状元的光明仕途，并反复强调楚月瑶将无缘这一切，以此进一步刺激和贬低她。",
+    "result_summary": "杨明和静柔的嚣张气焰达到顶峰，也促使楚月瑶做出关键预言，预示着剧情的重大转折。",
+    "location": "传统中国建筑室内",
+    "keyword": [
+      "炫耀",
+      "婚姻",
+      "仕途",
+      "嘲讽",
+      "权力攀附"
+    ],
+    "priority": "B",
+    "episode": "8",
+    "segment_uids": [
+      "68",
+      "69"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-07"
+    ],
+    "matched_dialogues": "楚月瑶: 没错你说的对, 三日后... 这些荣华富贵 也与你无关了。",
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明",
+      "静柔"
+    ],
+    "emotion_curve": "楚月瑶：平静→玩味→坚定、自信",
+    "event_summary": "面对杨明和静柔的嚣张炫耀，楚月瑶平静而自信地预言，杨明现在所享有的荣华富贵，将在三日后与他再无关系。",
+    "result_summary": "楚月瑶留下一个充满悬念和威胁的预言，直接挑战了杨明和静柔的优越感，为未来的逆转埋下伏笔。",
+    "location": "传统中国建筑室内",
+    "keyword": [
+      "预言",
+      "反转",
+      "自信",
+      "挑战",
+      "三日后"
+    ],
+    "priority": "A",
+    "episode": "8",
+    "segment_uids": [
+      "70"
+    ]
+  },
+  {
+    "event_id": "EVT-05",
+    "segment_ids": [
+      "SEG-08",
+      "SEG-09",
+      "SEG-10"
+    ],
+    "matched_dialogues": "杨明: 满嘴的疯言疯语... 我也是为了你好。如今, 我已是状元之姿, 可你 不过是个乡野妇人。 静柔: 她是刺激过度 患上失心疯了。 杨明: 只有像静柔这样的 名门闺秀 才会是我的良配。",
+    "main_characters": [
+      "杨明",
+      "静柔",
+      "少年"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "杨明、静柔：愤怒、嘲讽→自得→得意、满足 → 楚月瑶：平静 → 少年：自信、神秘",
+    "event_summary": "杨明和静柔将楚月瑶的预言斥为“失心疯”，并以伪善的姿态和傲慢的言辞，进一步羞辱楚月瑶是“乡野妇人”，强调两人地位天壤之别，并公开宣告静柔才是他的良配，两人亲密无间地展现得意。然而，楚月瑶的伴侣（少年）最后展现的自信微笑，预示着杨明和静柔的得意只是暂时的。",
+    "result_summary": "杨明和静柔在羞辱楚月瑶后自我满足，但楚月瑶及其伴侣的平静与自信，暗示着一场更大规模的反击即将到来，剧情冲突升级。",
+    "location": "传统中国建筑室内",
+    "keyword": [
+      "嘲讽",
+      "失心疯",
+      "羞辱",
+      "名门闺秀",
+      "自信反击"
+    ],
+    "priority": "B",
+    "episode": "8",
+    "segment_uids": [
+      "71",
+      "72",
+      "73"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01",
+      "SEG-02"
+    ],
+    "matched_dialogues": "我笑你有眼不识泰山一个连给我提鞋都没有资格的知府小姐就能让你得意成这样杨明功你的眼睛还真是没有白瞎呀你你胡说什么楚月瑶你竟敢羞辱我千金之躯我决不会放过你",
+    "main_characters": [
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "杨明功",
+      "袁大千金"
+    ],
+    "emotion_curve": "开心 → 嘲讽 → 愤怒",
+    "event_summary": "楚月瑶面对杨明功与袁大千金，霸气嘲讽袁大千金无资格，激怒二人。",
+    "result_summary": "袁大千金被激怒欲动手，冲突升级。",
+    "location": "屋内",
+    "keyword": [
+      "楚月瑶反击",
+      "嘲讽",
+      "冲突升级",
+      "袁大千金愤怒"
+    ],
+    "priority": "B",
+    "episode": "9",
+    "segment_uids": [
+      "74",
+      "75"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-03"
+    ],
+    "matched_dialogues": "",
+    "main_characters": [
+      "袁大千金",
+      "男配角"
+    ],
+    "target_characters": [
+      "楚月瑶",
+      "杨明功"
+    ],
+    "emotion_curve": "愤怒/紧张 → 痛苦/慌张",
+    "event_summary": "袁大千金持棍欲攻击楚月瑶，被男配角迅速阻止并折断棍子，过程中意外误伤了杨明功。",
+    "result_summary": "楚月瑶安然无恙，杨明功眼睛受伤。",
+    "location": "屋内",
+    "keyword": [
+      "男配角解围",
+      "暴力冲突",
+      "意外受伤",
+      "局势反转"
+    ],
+    "priority": "B",
+    "episode": "9",
+    "segment_uids": [
+      "76"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-04",
+      "SEG-05"
+    ],
+    "matched_dialogues": "让开让开让开谁敢在我杨家闹事儿子娘你没事吧没事你你这眼睛楚月瑶你好大的胆子不好好种地跑到这里和袁大千金起冲突啊母亲住口你可没资格叫我",
+    "main_characters": [
+      "杨母"
+    ],
+    "target_characters": [
+      "楚月瑶",
+      "杨明功"
+    ],
+    "emotion_curve": "焦急/愤怒 → 担忧/震惊 → 愤怒/指责 → 轻蔑",
+    "event_summary": "杨母闻讯赶到，发现儿子杨明功受伤后勃然大怒，将怒火转向楚月瑶并对其进行指责，同时轻蔑地拒绝楚月瑶的称呼。",
+    "result_summary": "杨母加入指责楚月瑶的阵营，婆媳冲突全面爆发。",
+    "location": "屋内",
+    "keyword": [
+      "杨母介入",
+      "婆媳冲突",
+      "愤怒指责",
+      "亲情偏袒"
+    ],
+    "priority": "B",
+    "episode": "9",
+    "segment_uids": [
+      "77",
+      "78"
+    ]
+  },
+  {
+    "event_id": "EVT-04",
+    "segment_ids": [
+      "SEG-06",
+      "SEG-07"
+    ],
+    "matched_dialogues": "这小白脸是谁娘这就是这个女人在外面偷的汉子你敢在我杨家偷人啊你找死啊你你哪只眼睛看见我偷人了，我敬你是长辈故而唤你一声母亲没想到你居然倚老卖老还真当自己是个人物了",
+    "main_characters": [
+      "杨明功",
+      "杨母",
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "楚月瑶",
+      "男配角"
+    ],
+    "emotion_curve": "愤怒 → 极度愤怒 → 不满/坚定 → 愤怒/不屑",
+    "event_summary": "杨明功向杨母告状，污蔑楚月瑶与男配角有染，杨母随即对楚月瑶进行恶毒的“偷人”指责，但楚月瑶霸气反驳，蔑视杨母的言行。",
+    "result_summary": "楚月瑶成功反驳“偷人”指控，进一步展现其强硬与不受压迫的态度。",
+    "location": "屋内",
+    "keyword": [
+      "偷人指控",
+      "楚月瑶反击",
+      "婆媳冲突升级",
+      "尊严捍卫"
+    ],
+    "priority": "A",
+    "episode": "9",
+    "segment_uids": [
+      "79",
+      "80"
+    ]
+  },
+  {
+    "event_id": "EVT-05",
+    "segment_ids": [
+      "SEG-08",
+      "SEG-09"
+    ],
+    "matched_dialogues": "你你这个不知廉耻的扫把星简直是贱得可以我们走站住想要走也可以把你这些年在我杨家吃穿用度的所有费用给我还回来",
+    "main_characters": [
+      "杨母",
+      "楚月瑶"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "极度愤怒/羞辱 → 坚定 → 愤怒/贪婪",
+    "event_summary": "楚月瑶决定带男配角离开，却被杨母以极其恶毒的言语羞辱并阻止，随后杨母勒索楚月瑶偿还她在杨家的一切费用。",
+    "result_summary": "楚月瑶面临被杨家羞辱并强制逐出的境地，并被要求支付经济赔偿。",
+    "location": "屋内",
+    "keyword": [
+      "人身攻击",
+      "勒索",
+      "驱逐",
+      "经济威胁"
+    ],
+    "priority": "A",
+    "episode": "9",
+    "segment_uids": [
+      "81",
+      "82"
+    ]
+  },
+  {
+    "event_id": "EVT-06",
+    "segment_ids": [
+      "SEG-10",
+      "SEG-11"
+    ],
+    "matched_dialogues": "娘娘你没事吧你这女人当初我让你进我杨家的门是为了给我杨家传宗接代开枝散叶的三年了呀铁公鸡也该下蛋了你这毒妇没有给我杨家留下一儿半女啊你就是全天下妇人的耻辱没法活了",
+    "main_characters": [
+      "杨母"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "痛苦/委屈/担忧 → 痛苦/指责/哭泣",
+    "event_summary": "杨母坐在地上痛哭流涕，对楚月瑶进行最恶毒的指责，控诉她三年未能生下一儿半女，是杨家和全天下妇人的耻辱。",
+    "result_summary": "楚月瑶被杨家彻底否定其作为媳妇的价值，承受巨大的生育压力和尊严上的打击。",
+    "location": "屋内",
+    "keyword": [
+      "无子指责",
+      "生育压力",
+      "家族耻辱",
+      "婆媳冲突高潮"
+    ],
+    "priority": "A",
+    "episode": "9",
+    "segment_uids": [
+      "83",
+      "84"
+    ]
+  },
+  {
+    "event_id": "EVT-01",
+    "segment_ids": [
+      "SEG-01",
+      "SEG-02",
+      "SEG-03"
+    ],
+    "matched_dialogues": "你这女人你还有脸笑啊大家伙快来呀,替我评评理啊俗话说,不孝有三,无后为大更何况,这楚月瑶还偷情",
+    "main_characters": [
+      "杨夫人",
+      "杨明功",
+      "楚月瑶",
+      "袁静柔",
+      "百姓"
+    ],
+    "target_characters": [
+      "楚月瑶"
+    ],
+    "emotion_curve": "愤怒，惊恐 → 平静，嘲讽 → 痛苦，挣扎 → 义愤填膺",
+    "event_summary": "杨夫人与杨明功在杨家院内公开指责楚月瑶偷情且三年无子，煽动围观百姓一同声讨，楚月瑶则以嘲讽和淡然回应。",
+    "result_summary": "杨夫人成功煽动群众对楚月瑶进行舆论攻击，但楚月瑶保持冷静并开始反击。",
+    "location": "室内",
+    "keyword": [
+      "公开指控",
+      "偷情无后",
+      "舆论声讨",
+      "嘲讽反击",
+      "家庭冲突"
+    ],
+    "priority": "A",
+    "episode": "10",
+    "segment_uids": [
+      "85",
+      "86",
+      "87"
+    ]
+  },
+  {
+    "event_id": "EVT-02",
+    "segment_ids": [
+      "SEG-04",
+      "SEG-05",
+      "SEG-06"
+    ],
+    "matched_dialogues": "既然你杨家不要脸面,那也别怪我不客气我告诉你,你们杨家是不会有的他这三年来,可有一次站起来过明哥哥,她说的,可是真的",
+    "main_characters": [
+      "楚月瑶",
+      "杨夫人",
+      "杨明功",
+      "袁静柔",
+      "逍遥王"
+    ],
+    "target_characters": [
+      "杨明功",
+      "杨夫人"
+    ],
+    "emotion_curve": "坚定，自信 → 震惊，愤怒 → 平静，坚定 → 震惊，痛苦 → 急切，担忧",
+    "event_summary": "面对杨家的无耻指责，楚月瑶霸气反击，当众揭露了杨明功三年来双腿残疾、无法站立的惊天秘密，令杨家母子及袁静柔极度震惊和恼羞成怒。",
+    "result_summary": "杨明功的秘密被揭露，杨家母子恼羞成怒，试图对楚月瑶施以暴力。",
+    "location": "室内",
+    "keyword": [
+      "秘密揭露",
+      "残疾",
+      "愤怒反击",
+      "暴力冲突",
+      "家族丑闻"
+    ],
+    "priority": "A",
+    "episode": "10",
+    "segment_uids": [
+      "88",
+      "89",
+      "90"
+    ]
+  },
+  {
+    "event_id": "EVT-03",
+    "segment_ids": [
+      "SEG-07",
+      "SEG-08",
+      "SEG-09",
+      "SEG-10",
+      "SEG-11",
+      "SEG-12"
+    ],
+    "matched_dialogues": "楚月瑶,你竟然敢侮辱新科状元,你找死你们两个,把这个女人给我抓起来你们当本王是摆设是吧我倒要看看,你们能在杨家,掀起什么风浪闪开末将救驾来迟,还请逍遥王恕罪起来吧,未完待续",
+    "main_characters": [
+      "逍遥王",
+      "楚月瑶",
+      "杨明功",
+      "杨夫人",
+      "林玄",
+      "玄甲军",
+      "袁静柔"
+    ],
+    "target_characters": [
+      "杨明功",
+      "杨夫人"
+    ],
+    "emotion_curve": "愤怒，威胁 → 威严，不悦 → 傲慢，挑衅 → 震撼 → 惊讶，恐慌 → 恭敬，请罪 → 从容，自信",
+    "event_summary": "杨家母子恼羞成怒对楚月瑶施加暴力，逍遥王霸气现身阻止并召唤林玄率玄甲军强势介入，迅速镇压杨家，将杨明功母子完全压制。",
+    "result_summary": "逍遥王成功救下楚月瑶，杨家权威尽失，被逍遥王的军队彻底控制，为下集埋下伏笔。",
+    "location": "室内",
+    "keyword": [
+      "逍遥王介入",
+      "强势镇压",
+      "军队现身",
+      "权力逆转",
+      "救驾",
+      "高潮"
+    ],
+    "priority": "A",
+    "episode": "10",
+    "segment_uids": [
+      "91",
+      "92",
+      "93",
+      "94",
+      "95",
+      "96"
+    ]
+  }
+]
+
+
+每个事件包含以下字段：
+event_id：事件编号（如 "EVT-01"）
+segment_ids：包含的 seg_id 列表
+matched_dialogues：关键对白
+main_characters：事件主角
+target_characters：被针对或影响的角色（如有）
+emotion_curve：情绪变化过程
+event_summary：事件内容
+result_summary：事件结果
+location：事件场景
+keyword：关键词列表
+priority：事件等级（A =关键主线；B = 次要推动；C = 日常补充）
+每个片段包含以下字段
+seg_uid：序列号（如 "1"）
+ep_id：集数（如 "1"）
+segment_id：段落编号（如 "SEG-01"）
+start_time / end_time：时间段（如 "00:00:00.000"）
+included_shots：包含的镜头编号（如 ["SHOT-01", "SHOT-02"]）
+main_characters：该段主要角色（标准角色名）
+merged_dialogues：合并后的对白内容
+emotion_summary：该段情绪概括（如 "愤怒 → 哭泣"）
+location：场景名称（如 "古代庭院"）
+merge_reason：镜头合并原因
+segment_summary：一句话描述该段剧情
+模块三｜剪辑模版（按集推进）
+本任务围绕“第一集”进行内容组合，构建“追剧感”解说视频。
+默认以“第一集”为主事件池。，允许提取后续集数事件、片段进行延伸补充，但必须以当前集故事线为主导。
+❗请注意：
+请仅从 ep_id = "1" 的镜头片段（seg_uid）中抽取，用于视频组合。不要跨集引用其他 ep_id 的镜头或事件。
+每条视频基于 5–12 个片段视频（seg_uid）组合生成（3 个视频次序(seg_uid)不得连续重复），时长控制在 一分钟内内，适配 TikTok 用户节奏。
+模块四｜节奏结构逻辑
+可采用顺叙等方式讲述，但需保证情节清晰、情绪递增。
+不允许无逻辑跳接或断裂式组合，避免用户理解障碍。
+模块五｜文案风格与叙述语气（三段式结构）
+开头段：制造注意力抓手，抛出冲突或情绪爆点，引发好奇（3 秒勾子）。
+中间段：串联事件，推进情节发展，语言口语化、有节奏感。
+结尾段：制造悬念或反转，引导用户产生观看完整版的欲望。
+随机多种叙述风格（第一人称内心独白、第三人称旁观、冷幽默、情绪共鸣等）。
+强调真实感与非模板表达，避免格式化套话。
+模块六｜输出格式（字段规范、语种、可读性）
+请严格按照以下格式，生成10条完全不同的短剧解说方案。每条方案必须完整包含以下字段：
+格式模板如下（请务必逐项填写，字段不可缺漏）：
+方案编号（例如：方案1）
+剧名：《剧名示例》
+中文解说词： 不包含原始对白，需为完整中文解说内容
+（开头）……
+（中段）……
+（结尾）……
+英文翻译：  中文内容的语义等效翻译
+（开头）……
+（中段）……
+（结尾）……
+视频所用片段：以字符串格式输出,以下仅举例生成格式，以实际生成为主。字段如下：
+segUid：片段编号字符串，使用 + 连接，如 "90+84+95"
+time：各片段时长字符串，单位为秒，使用逗号分隔，如 "30秒,20秒,25秒"
+请注意，这两个字段必须是字符串（string），不能是数组、不能是数字列表，必须符合 JSON 字符串格式。
+视频组合逻辑：…… 视频选择的组合逻辑及视频节奏情绪
+视频组合的内容：输出每段视频的概要，输出格式为:(片段编号segUid)当前片段编号概要+(片段编号segUid)当前片段编号概要。使用+连接视频所用片段
+视频组合的情绪：展示视频的情绪节奏
+中文解说词总字数：解说词总字数，建议 150字 字
+视频总时长：对应合并后的事件片段总秒数，对应镜头表中各个镜头的start_time和end_time，两个相差时间为单个镜头时长
+要求如下：
+1. 每条方案内容必须完整填满以上模板。
+所有字段必须逐项完整填写，严禁出现 null、略写、省略字段的情况。
+2.每条视频一行,共输出 10 条完全不同方案（含解说内容、事件组合、视频节奏均不同）
+
+每条方案之间以换行分隔，格式如下：
+（以下为固定字段顺序与格式，请照此逐条填写）
+
+⚠️ 请注意：本任务要求模型每条方案必须严格按照以下字段输出，**不得浓缩、不得合并**，**不得以“篇幅限制”“略写”等理由省略任何一条方案。
+
+如果模型一次输出长度不足，请自动补续，直至补齐方案10。如已完整输出 10 条，不得再次输出。
+禁止重复生成方案、禁止重新补写，必须仅输出 10 条！
+
+禁止输出如下内容：
+- 不得使用“以下为部分展示”“仅列核心信息”等描述
+- 不得出现“方案1-3为完整，其余略写”的格式
+- 不得嵌入 markdown 代码块（```txt）
+
+请将每个方案封装成一个 JSON 对象，所有方案组成 JSON 数组格式输出，字段包括：
+- planNumber
+- title
+- chineseNarration: {begin, middle, end}
+- translation: {begin, middle, end}
+- usedSegment: {segUid, time}
+- combinationLogic
+- combinationContent
+- combinationEmotion
+- chineseWordCount
+- videoDurationSeconds
+⚠️ 注意：输出内容必须严格符合 JSON 语法标准，所有字段必须使用英文双引号，值为字符串时也必须用英文双引号括起来，不能使用中文引号或省略引号！
+如：
+{
+  "planNumber": "方案1",
+  "title": "剧集标题",
+  "chineseNarration": {
+    "begin": "开头段解说词",
+    "middle": "中间段解说词",
+    "end": "结尾段解说词"
+  },
+  "translation": {
+    "begin": "对应外语翻译",
+    "middle": "对应外语翻译",
+    "end": "对应外语翻译"
+  },
+  "usedSegment": {
+    "segUid": "片段编号组合，如 '1+3+7'",
+    "time": "各片段时长拼接，字符串格式，如 '30秒,20秒,35秒'"
+  },
+  "combinationLogic": "片段选择与顺序组合逻辑说明",
+  "combinationContent": "每段片段概括说明，突出承接与推进关系",
+  "combinationEmotion": "整体情绪起伏过程，如 '压抑→惊讶→痛快'",
+  "chineseWordCount": 85,
+  "videoDurationSeconds": 85
+}

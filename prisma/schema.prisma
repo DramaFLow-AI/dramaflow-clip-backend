@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_file_md5 {
+  id                BigInt    @id @default(autoincrement())
+  source_id         BigInt?
+  source_type       Int?      @db.TinyInt
+  file_name         String?   @db.VarChar(255)
+  file_type         String?   @db.VarChar(20)
+  file_content_type String?   @db.VarChar(255)
+  file_size         BigInt?
+  file_url          String?   @db.VarChar(255)
+  file_md5          String?   @db.VarChar(255)
+  is_delete         Boolean?  @default(dbgenerated("b'0'")) @db.Bit(1)
+  create_id         Int?
+  create_by         String?   @db.VarChar(255)
+  create_time       DateTime? @db.DateTime(0)
+  update_id         Int?
+  update_by         String?   @db.VarChar(255)
+  update_time       DateTime? @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_film_library {
+  id                  Int       @id @default(autoincrement())
+  film_name           String?   @db.VarChar(100)
+  cover               String?   @db.VarChar(255)
+  summary             String?   @db.MediumText
+  summary_text        String?   @db.MediumText
+  film_character      String?   @db.MediumText
+  event_table         String?   @db.VarChar(255)
+  event_table_text    String?   @db.MediumText
+  role_table          String?   @db.VarChar(255)
+  role_table_text     String?   @db.MediumText
+  fragment_table      String?   @db.VarChar(255)
+  fragment_table_text String?   @db.MediumText
+  material_pack       String?   @db.VarChar(255)
+  film_library        String?   @db.MediumText
+  cut_word            String?   @db.MediumText
+  language            String?   @db.VarChar(255)
+  brief_introduction  String?   @db.MediumText
+  create_id           Int?
+  create_by           String?   @db.VarChar(100)
+  create_time         DateTime? @db.DateTime(0)
+  update_id           Int?
+  update_by           String?   @db.VarChar(100)
+  update_time         DateTime? @db.DateTime(0)
+  is_delete           Int?      @default(0)
+  role_id             Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_generate_fragment {
+  id          BigInt    @id @default(autoincrement())
+  scheme_id   Int?
+  user_id     Int?
+  film_id     Int?
+  film_name   String?   @db.VarChar(255)
+  fragment    String?   @db.VarChar(255)
+  state       Int?
+  create_time DateTime? @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_generate_scheme_manage {
+  id                    Int       @id @default(autoincrement())
+  film_id               Int?
+  film_name             String?   @db.VarChar(255)
+  user_id               Int?
+  state                 Int?
+  actual_scheme         String?   @db.MediumText
+  scheme                String?   @db.MediumText
+  create_time           DateTime? @db.DateTime(0)
+  log                   String?   @db.MediumText
+  select_scheme         String?   @db.VarChar(255)
+  select_scheme_content String?   @db.MediumText
+  duration              String?   @db.VarChar(255)
+  consumption_points    String?   @db.VarChar(255)
+  audio_url             String?   @db.MediumText
+  download_content      String?   @db.MediumText
+  is_dub                Int?      @default(0)
+  language              String?   @db.VarChar(255)
+  timbre                String?   @db.VarChar(255)
+  choose_ai             Int?
+  tts_task_state        Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_log {
+  id         BigInt    @id
+  url        String?   @db.VarChar(255)
+  request    String?   @db.VarChar(2000)
+  response   String?   @db.Text
+  start_time DateTime? @db.DateTime(0)
+  end_time   DateTime? @db.DateTime(0)
+  ip         String?   @db.VarChar(255)
+  status     String?   @db.VarChar(255)
+  token      String?   @db.VarChar(255)
+  user_id    BigInt?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_narrate_record {
+  id                 Int       @id @default(autoincrement())
+  scheme_id          Int?
+  user_id            Int?
+  user_name          String?   @db.VarChar(255)
+  narrate_date       DateTime? @db.DateTime(0)
+  script_catalog     String?   @db.VarChar(255)
+  scheme             String?   @db.VarChar(255)
+  duration           Int?
+  consumption_points BigInt?
+  is_download        Int?      @default(0)
+  create_id          Int?
+  create_by          String?   @db.VarChar(100)
+  create_time        DateTime? @db.DateTime(0)
+  type               Int?      @default(0)
+  dub_number         Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_recharge_record {
+  id              Int       @id @default(autoincrement())
+  user_id         Int?
+  user_name       String?   @db.VarChar(255)
+  recharge_money  Decimal?  @db.Decimal(10, 2)
+  recharge_points BigInt?
+  create_id       Int?
+  create_by       String?   @db.VarChar(100)
+  create_time     DateTime? @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_role {
+  id          Int       @id @default(autoincrement())
+  role_name   String?   @db.VarChar(100)
+  state       Int?
+  create_id   Int?
+  create_by   String?   @db.VarChar(100)
+  create_time DateTime? @db.DateTime(0)
+  update_id   Int?
+  update_by   String?   @db.VarChar(100)
+  update_time DateTime? @db.DateTime(0)
+  is_delete   Int?      @default(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_role_routes {
+  id          Int       @id @default(autoincrement())
+  role_id     Int?
+  route_id    BigInt?
+  type        Int?
+  create_id   Int?
+  create_by   String?   @db.VarChar(100)
+  create_time DateTime? @db.DateTime(0)
+  is_delete   Int?      @default(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_route_permissions {
+  id       BigInt @id @default(autoincrement())
+  route_id BigInt
+  label    String @db.VarChar(100)
+  value    String @db.VarChar(100)
+
+  @@index([route_id], map: "route_id")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_routes {
+  id           BigInt    @id @default(autoincrement())
+  parent_id    BigInt?
+  path         String    @db.VarChar(255)
+  component    String?   @db.VarChar(255)
+  redirect     String?   @db.VarChar(255)
+  name         String    @db.VarChar(100)
+  type         Int       @default(0) @db.TinyInt
+  status       Int       @default(1) @db.TinyInt
+  hidden       Boolean?  @default(false)
+  always_show  Boolean?  @default(false)
+  icon         String?   @db.VarChar(100)
+  title        String    @db.VarChar(100)
+  no_cache     Boolean?  @default(false)
+  breadcrumb   Boolean?  @default(true)
+  affix        Boolean?  @default(false)
+  no_tags_view Boolean?  @default(false)
+  active_menu  String?   @db.VarChar(255)
+  can_to       Boolean?  @default(false)
+  created_at   DateTime? @default(now()) @db.DateTime(0)
+  updated_at   DateTime? @default(now()) @db.DateTime(0)
+  order_num    Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_scheme_record {
+  id            BigInt    @id @default(autoincrement())
+  scheme_id     Int?
+  state         Int?
+  actual_scheme String?   @db.MediumText
+  order_number  Int?
+  create_time   DateTime? @db.DateTime(0)
+  log           String?   @db.MediumText
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_template {
+  id          Int       @id @default(autoincrement())
+  temp_name   String?   @db.VarChar(100)
+  create_id   Int?
+  create_by   String?   @db.VarChar(100)
+  create_time DateTime? @db.DateTime(0)
+  update_id   Int?
+  update_by   String?   @db.VarChar(100)
+  update_time DateTime? @db.DateTime(0)
+  is_delete   Int?      @default(0)
+  user_id     Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_template_module {
+  id          Int       @id @default(autoincrement())
+  template_id Int?
+  module_name String?   @db.VarChar(100)
+  order_num   Int?
+  content     String?   @db.MediumText
+  create_id   Int?
+  create_by   String?   @db.VarChar(100)
+  create_time DateTime? @db.DateTime(0)
+  update_id   Int?
+  update_by   String?   @db.VarChar(100)
+  update_time DateTime? @db.DateTime(0)
+  is_delete   Int?      @default(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_user {
+  id                  Int       @id @default(autoincrement())
+  account_num         String?   @db.VarChar(100)
+  password            String?   @db.VarChar(100)
+  user_name           String?   @db.VarChar(100)
+  phone               String?   @db.VarChar(100)
+  state               Int?
+  role_id             Int?
+  role_name           String?   @db.VarChar(100)
+  create_id           Int?
+  create_by           String?   @db.VarChar(100)
+  create_time         DateTime? @db.DateTime(0)
+  update_id           Int?
+  update_by           String?   @db.VarChar(100)
+  update_time         DateTime? @db.DateTime(0)
+  is_delete           Int?      @default(0)
+  balance             BigInt?
+  recharge_sum_points BigInt?
+  consume_sum_points  BigInt?
+  download_plan       Int?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_tts_task {
+  id           BigInt                   @id @default(autoincrement())
+  scheme_id    BigInt
+  scheme_index Int
+  segment_key  sys_tts_task_segment_key
+  text_content String                   @db.MediumText
+  audio_url    String?                  @db.Text
+  status       Int?                     @default(0) @db.TinyInt
+  retry_count  Int?                     @default(0)
+  max_retry    Int?                     @default(3)
+  error_log    String?                  @db.Text
+  create_time  DateTime?                @default(now()) @db.DateTime(0)
+  update_time  DateTime?                @default(now()) @db.DateTime(0)
+  voice_name   String?                  @db.VarChar(40)
+  language     String?                  @db.VarChar(20)
+  tts_model    String?                  @db.VarChar(40)
+
+  @@unique([scheme_id, scheme_index, segment_key], map: "uk_scheme_segment")
+}
+
+enum sys_tts_task_segment_key {
+  begin
+  middle
+  end
+}
