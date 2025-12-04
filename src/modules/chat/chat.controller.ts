@@ -22,7 +22,7 @@ import {
 } from './dto/chat.dto';
 import { ApiResponseDto } from '../../common/decorators/api-response.decorator';
 
-@ApiTags('Chat 聊天')
+@ApiTags('Gemini 聊天与语音')
 @Controller('gemini')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
