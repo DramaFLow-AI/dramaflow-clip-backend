@@ -170,7 +170,9 @@ export class ChatService {
               '您的请求可能触发了版权内容检测，请修改后重试',
             );
           case FinishReason.MAX_TOKENS:
-            throw new BadRequestException('响应内容超出最大长度限制');
+            // 不再抛出错误，允许正常的响应被截断
+            this.logger.warn('响应因达到 token 限制而被截断，但内容仍然有效');
+            break;
           case FinishReason.OTHER:
           default:
             throw new BadRequestException(
@@ -331,7 +333,11 @@ export class ChatService {
                 '您的请求可能触发了版权内容检测，请修改后重试',
               );
             case FinishReason.MAX_TOKENS:
-              throw new BadRequestException('响应内容超出最大长度限制');
+              // 不再抛出错误，允许正常的响应被截断
+              this.logger.warn(
+                '流式响应因达到 token 限制而被截断，但内容仍然有效',
+              );
+              break;
             case FinishReason.OTHER:
             default:
               throw new BadRequestException(
@@ -512,7 +518,6 @@ export class ChatService {
       const response = await this.openAIClient.chat.completions.create({
         model: 'deepseek/deepseek-v3.2',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
         stream: false,
       });
 
@@ -572,7 +577,6 @@ export class ChatService {
       const response = await this.openAIClient.chat.completions.create({
         model: 'pa/gt-4p',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
         stream: false,
       });
 
@@ -643,7 +647,6 @@ export class ChatService {
       const stream = await this.openAIClient.chat.completions.create({
         model: 'deepseek/deepseek-v3.2',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
         stream: true,
       });
 
@@ -720,7 +723,6 @@ export class ChatService {
       const stream = await this.openAIClient.chat.completions.create({
         model: 'pa/gt-4p',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
         stream: true,
       });
 
