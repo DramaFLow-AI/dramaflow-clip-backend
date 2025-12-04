@@ -620,6 +620,162 @@ export class ChatService {
   }
 
   /**
+   * DeepSeek 流式聊天
+   * @param prompt 用户输入的文本
+   * @param onChunk 接收结构化数据块的回调函数
+   */
+  async deepSeekChatStream(
+    prompt: string,
+    onChunk: (data: {
+      content: string;
+      usage: TokenUsageDto;
+      model: string;
+      responseTime: number;
+      isComplete: boolean;
+    }) => void,
+  ): Promise<void> {
+    try {
+      const startTime = Date.now();
+      this.logger.log(
+        `开始 DeepSeek 流式聊天请求，prompt 长度: ${prompt.length}`,
+      );
+
+      const stream = await this.openAIClient.chat.completions.create({
+        model: 'deepseek/deepseek-v3.2',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2048,
+        stream: true,
+      });
+
+      let fullText = '';
+
+      for await (const chunk of stream) {
+        const content = chunk.choices?.[0]?.delta?.content;
+        if (content) {
+          fullText += content;
+
+          const currentTime = Date.now();
+          const responseTime = currentTime - startTime;
+
+          // 构建当前响应数据
+          const responseData = {
+            content: fullText,
+            usage: {
+              promptTokens: Math.ceil(prompt.length / 4), // 粗略估算
+              completionTokens: Math.ceil(fullText.length / 4),
+              totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+            },
+            model: 'deepseek/deepseek-v3.2',
+            responseTime,
+            isComplete: false, // 流式过程中都不是最终响应
+          };
+
+          onChunk(responseData);
+        }
+      }
+
+      // 发送最终的完整响应
+      const finalTime = Date.now();
+      const finalResponseData = {
+        content: fullText,
+        usage: {
+          promptTokens: Math.ceil(prompt.length / 4),
+          completionTokens: Math.ceil(fullText.length / 4),
+          totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+        },
+        model: 'deepseek/deepseek-v3.2',
+        responseTime: finalTime - startTime,
+        isComplete: true, // 标记为最终响应
+      };
+
+      onChunk(finalResponseData);
+
+      this.logger.log(
+        `DeepSeek 流式聊天成功，总长度: ${fullText.length}, 总耗时: ${finalTime - startTime}ms`,
+      );
+    } catch (error) {
+      this.handleOpenAIError(error, 'DeepSeek');
+    }
+  }
+
+  /**
+   * GPT 流式聊天
+   * @param prompt 用户输入的文本
+   * @param onChunk 接收结构化数据块的回调函数
+   */
+  async gptChatStream(
+    prompt: string,
+    onChunk: (data: {
+      content: string;
+      usage: TokenUsageDto;
+      model: string;
+      responseTime: number;
+      isComplete: boolean;
+    }) => void,
+  ): Promise<void> {
+    try {
+      const startTime = Date.now();
+      this.logger.log(`开始 GPT 流式聊天请求，prompt 长度: ${prompt.length}`);
+
+      const stream = await this.openAIClient.chat.completions.create({
+        model: 'pa/gt-4p',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2048,
+        stream: true,
+      });
+
+      let fullText = '';
+
+      for await (const chunk of stream) {
+        const content = chunk.choices?.[0]?.delta?.content;
+        if (content) {
+          fullText += content;
+
+          const currentTime = Date.now();
+          const responseTime = currentTime - startTime;
+
+          // 构建当前响应数据
+          const responseData = {
+            content: fullText,
+            usage: {
+              promptTokens: Math.ceil(prompt.length / 4), // 粗略估算
+              completionTokens: Math.ceil(fullText.length / 4),
+              totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+            },
+            model: 'pa/gt-4p',
+            responseTime,
+            isComplete: false, // 流式过程中都不是最终响应
+          };
+
+          onChunk(responseData);
+        }
+      }
+
+      // 发送最终的完整响应
+      const finalTime = Date.now();
+      const finalResponseData = {
+        content: fullText,
+        usage: {
+          promptTokens: Math.ceil(prompt.length / 4),
+          completionTokens: Math.ceil(fullText.length / 4),
+          totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+        },
+        model: 'pa/gt-4p',
+        responseTime: finalTime - startTime,
+        isComplete: true, // 标记为最终响应
+      };
+
+      onChunk(finalResponseData);
+
+      this.logger.log(
+        `GPT 流式聊天成功，总长度: ${fullText.length}, 总耗时: ${finalTime - startTime}ms`,
+      );
+    } catch (error) {
+      this.handleOpenAIError(error, 'GPT');
+    }
+  }
+
+  /**
    * 获取 VertexAI TTS 支持的语音列表
    * @returns 支持的语音列表
    */

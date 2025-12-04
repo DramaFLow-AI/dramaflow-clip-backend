@@ -81,7 +81,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true, // 自动类型转换（比如字符串 "1" 转成数字 1）
-      whitelist: true, // 自动剔除 DTO 中不存在的字段
+      whitelist: true, // 自动剔除 dto 中不存在的字段
       forbidNonWhitelisted: true, // 如果传了不存在的字段就报错
     }),
   );

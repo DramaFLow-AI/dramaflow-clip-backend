@@ -7,7 +7,7 @@ export class GetStatusQueryDto {
   schemeId: string;
 }
 
-// ------------------------- 嵌套 DTO -------------------------
+// ------------------------- 嵌套 dto -------------------------
 
 export class TranslationDto {
   @ApiProperty({ description: 'begin 段英文翻译' })

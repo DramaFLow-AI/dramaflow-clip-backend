@@ -6,7 +6,7 @@ import { ResponseDto } from '../dto/response.dto';
  * 通用响应装饰器，用于 Swagger 文档生成
  * 支持对象、数组、原始类型（string/number/boolean）
  *
- * @template TModel 响应数据类型，可以是 DTO 类，也可以是 String/Number/Boolean
+ * @template TModel 响应数据类型，可以是 dto 类，也可以是 String/Number/Boolean
  * @param model 响应数据类型
  * @param isArray 是否为数组类型，默认为 false
  * @param dataDescription data 字段在 Swagger 中的描述，可自定义
