@@ -55,16 +55,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = exception.message || message;
     }
 
-    // 业务自定义错误提示映射
-    const customMessageMap: Record<number, string> = {
-      400: '请求参数错误',
+    // 业务自定义错误提示映射（只针对通用 HTTP 错误）
+    const httpMessageMap: Record<number, string> = {
       401: '未授权或登录过期',
       403: '禁止访问',
       404: '您请求的接口不存在',
       500: '服务器内部错误',
+      502: '网关错误',
+      503: '服务不可用',
+      504: '网关超时',
     };
 
-    const finalMessage = customMessageMap[status] || message;
+    // 对于 400 错误，优先使用业务层返回的具体错误信息
+    // 对于其他 HTTP 错误，使用通用映射
+    const finalMessage =
+      status === 400 ? message : httpMessageMap[status] || message;
 
     // ====== 写入日志 ======
     let stack = '';

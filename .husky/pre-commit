@@ -1,0 +1,16 @@
+echo '🔍 Running pre-commit checks...'
+
+# 运行 linting
+echo '📝 Running ESLint...'
+pnpm run lint
+
+# 运行格式化检查
+echo '🎨 Checking Prettier formatting...'
+pnpm run format:check
+
+# 检查 TypeScript 编译
+echo '🔧 Checking TypeScript compilation...'
+pnpm run type-check
+
+echo '✅ Pre-commit checks passed!'
+

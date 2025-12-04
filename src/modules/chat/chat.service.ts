@@ -5,6 +5,7 @@ import {
   GenerativeModel,
   FinishReason,
 } from '@google-cloud/vertexai';
+import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { pcmToWavBuffer } from '../../utils/pcmToWavBuffer';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { OssService } from '../../common/oss/oss.service';
@@ -14,6 +15,12 @@ import { createVertexAI } from '../../utils/vertexai';
 import * as dayjs from 'dayjs';
 import { MinimaxTTSResponse } from './types';
 import OpenAI from 'openai';
+import {
+  ChatResponseDto,
+  TokenUsageDto,
+  VertexAiTTSRequestDto,
+  VertexAITSResponseDto,
+} from './DTO/chat.dto';
 
 /**
  * 聊天与语音生成服务
@@ -33,6 +40,9 @@ export class ChatService {
   // OpenAI 客户端 (PPIO)
   private readonly openAIClient: OpenAI;
 
+  // Text-to-Speech 客户端 (VertexAI)
+  private readonly ttsClient: TextToSpeechClient;
+
   // MiniMax 配置
   private readonly miniMaxApiKey: string;
   private readonly miniMaxGroupId: string;
@@ -46,6 +56,12 @@ export class ChatService {
     this.openAIClient = new OpenAI({
       baseURL: 'https://api.ppinfra.com/openai',
       apiKey: env.OPENAI_KEY,
+    });
+
+    // 初始化 Text-to-Speech 客户端
+    this.ttsClient = new TextToSpeechClient({
+      projectId: env.GCP_PROJECT_ID,
+      keyFile: env.GCP_SERVICE_ACCOUNT_PATH,
     });
 
     // 初始化 Vertex AI (带代理支持)
@@ -69,12 +85,52 @@ export class ChatService {
   }
 
   /**
+   * 处理 OpenAI API 错误的通用函数
+   * @param error 错误对象
+   * @param serviceName 服务名称（如 'DeepSeek', 'GPT'）
+   */
+  private handleOpenAIError(error: any, serviceName: string): never {
+    // 如果已经是 BadRequestException，直接抛出
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+
+    this.logger.error(`${serviceName} 聊天请求失败`, {
+      error: error.message,
+      stack: error.stack,
+      status: error.status,
+    });
+
+    // 根据不同的错误类型返回更具体的错误信息
+    if (error.status === 401) {
+      throw new BadRequestException(
+        `${serviceName} API 认证失败，请检查 API Key 是否正确`,
+      );
+    } else if (error.status === 403) {
+      throw new BadRequestException(
+        `${serviceName} 服务访问被拒绝，可能是账户余额不足或没有权限访问该模型`,
+      );
+    } else if (error.status === 429) {
+      throw new BadRequestException(
+        `${serviceName} API 调用频率超限，请稍后重试`,
+      );
+    } else if (error.status === 404) {
+      throw new BadRequestException(`${serviceName} 模型不存在或名称错误`);
+    } else {
+      throw new BadRequestException(
+        `${serviceName} 服务调用失败: ${error.message || '未知错误'}`,
+      );
+    }
+  }
+
+  /**
    * Gemini 文本聊天
    * @param prompt 用户输入的文本
-   * @returns 模型生成的文本响应
+   * @returns 包含内容和token统计的响应对象
    */
-  async chat(prompt: string): Promise<string> {
+  async chat(prompt: string): Promise<ChatResponseDto> {
     try {
+      const startTime = Date.now();
       const request = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       };
@@ -132,8 +188,36 @@ export class ChatService {
         throw new BadRequestException('Gemini 返回了空响应，请重试');
       }
 
-      this.logger.log(`Gemini 聊天成功，响应长度: ${text.length}`);
-      return text;
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      // 获取 token 使用统计
+      const usageMetadata = response.response?.usageMetadata;
+      const usage = new TokenUsageDto();
+
+      if (usageMetadata) {
+        usage.promptTokens = usageMetadata.promptTokenCount || 0;
+        usage.completionTokens = usageMetadata.candidatesTokenCount || 0;
+        usage.totalTokens = usageMetadata.totalTokenCount || 0;
+      } else {
+        // 如果没有返回 token 统计，设置为 0
+        usage.promptTokens = 0;
+        usage.completionTokens = 0;
+        usage.totalTokens = 0;
+        this.logger.warn('Gemini 未返回 token 使用统计');
+      }
+
+      const result: ChatResponseDto = {
+        content: text,
+        usage,
+        model: 'gemini-2.5-flash',
+        responseTime,
+      };
+
+      this.logger.log(
+        `Gemini 聊天成功，响应长度: ${text.length}, Token使用: ${usage.totalTokens}, 耗时: ${responseTime}ms`,
+      );
+      return result;
     } catch (error) {
       // 如果已经是 BadRequestException，直接抛出
       if (error instanceof BadRequestException) {
@@ -162,7 +246,7 @@ export class ChatService {
     onChunk: (text: string) => void,
   ): Promise<void> {
     const stream = await this.openAIClient.chat.completions.create({
-      model: 'deepseek/deepseek-r1',
+      model: 'deepseek/deepseek-v3.2',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 512,
       stream: true,
@@ -292,6 +376,450 @@ export class ChatService {
     );
 
     return result.url;
+  }
+
+  /**
+   * DeepSeek 非流式聊天
+   * @param prompt 用户输入的文本
+   * @returns 包含内容和token统计的响应对象
+   */
+  async deepSeekChat(prompt: string): Promise<ChatResponseDto> {
+    try {
+      const startTime = Date.now();
+      this.logger.log(`开始 DeepSeek 聊天请求，prompt 长度: ${prompt.length}`);
+
+      const response = await this.openAIClient.chat.completions.create({
+        model: 'deepseek/deepseek-v3.2',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2048,
+        stream: false,
+      });
+
+      const content = response.choices?.[0]?.message?.content;
+      if (!content || content.trim() === '') {
+        this.logger.error('DeepSeek 返回了空响应', {
+          response: JSON.stringify(response),
+        });
+        throw new BadRequestException('DeepSeek 返回了空响应，请重试');
+      }
+
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      // 获取 token 使用统计
+      const usage = new TokenUsageDto();
+      const usageData = response.usage;
+
+      if (usageData) {
+        usage.promptTokens = usageData.prompt_tokens || 0;
+        usage.completionTokens = usageData.completion_tokens || 0;
+        usage.totalTokens = usageData.total_tokens || 0;
+      } else {
+        // 如果没有返回 token 统计，设置为 0
+        usage.promptTokens = 0;
+        usage.completionTokens = 0;
+        usage.totalTokens = 0;
+        this.logger.warn('DeepSeek 未返回 token 使用统计');
+      }
+
+      const result: ChatResponseDto = {
+        content,
+        usage,
+        model: 'deepseek/deepseek-v3.2',
+        responseTime,
+      };
+
+      this.logger.log(
+        `DeepSeek 聊天成功，响应长度: ${content.length}, Token使用: ${usage.totalTokens}, 耗时: ${responseTime}ms`,
+      );
+      return result;
+    } catch (error) {
+      this.handleOpenAIError(error, 'DeepSeek');
+    }
+  }
+
+  /**
+   * GPT 非流式聊天（使用第三方服务商模型：pa/gt-4p）
+   * @param prompt 用户输入的文本
+   * @returns 包含内容和token统计的响应对象
+   */
+  async gptChat(prompt: string): Promise<ChatResponseDto> {
+    try {
+      const startTime = Date.now();
+      this.logger.log(`开始 GPT 聊天请求，prompt 长度: ${prompt.length}`);
+
+      const response = await this.openAIClient.chat.completions.create({
+        model: 'pa/gt-4p',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2048,
+        stream: false,
+      });
+
+      const content = response.choices?.[0]?.message?.content;
+      if (!content || content.trim() === '') {
+        this.logger.error('GPT 返回了空响应', {
+          response: JSON.stringify(response),
+        });
+        throw new BadRequestException('GPT 返回了空响应，请重试');
+      }
+
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      // 获取 token 使用统计
+      const usage = new TokenUsageDto();
+      const usageData = response.usage;
+
+      if (usageData) {
+        usage.promptTokens = usageData.prompt_tokens || 0;
+        usage.completionTokens = usageData.completion_tokens || 0;
+        usage.totalTokens = usageData.total_tokens || 0;
+      } else {
+        // 如果没有返回 token 统计，设置为 0
+        usage.promptTokens = 0;
+        usage.completionTokens = 0;
+        usage.totalTokens = 0;
+        this.logger.warn('GPT 未返回 token 使用统计');
+      }
+
+      const result: ChatResponseDto = {
+        content,
+        usage,
+        model: 'pa/gt-4p',
+        responseTime,
+      };
+
+      this.logger.log(
+        `GPT 聊天成功，响应长度: ${content.length}, Token使用: ${usage.totalTokens}, 耗时: ${responseTime}ms`,
+      );
+      return result;
+    } catch (error) {
+      this.handleOpenAIError(error, 'GPT');
+    }
+  }
+
+  /**
+   * 获取 VertexAI TTS 支持的语音列表
+   * @returns 支持的语音列表
+   */
+  getVertexAIVoices() {
+    return {
+      chinese: {
+        languageCode: 'zh-CN',
+        standard: [
+          {
+            name: 'cm-CN-Standard-A',
+            description: '中文女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'cm-CN-Standard-B',
+            description: '中文女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'cm-CN-Standard-C',
+            description: '中文男声 (标准语音)',
+            gender: 'male',
+          },
+          {
+            name: 'cm-CN-Standard-D',
+            description: '中文女声 (标准语音)',
+            gender: 'female',
+          },
+        ],
+        wavenet: [
+          {
+            name: 'cm-CN-Wavenet-A',
+            description: '中文女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'cm-CN-Wavenet-B',
+            description: '中文男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'cm-CN-Wavenet-C',
+            description: '中文女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'cm-CN-Wavenet-D',
+            description: '中文男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+        ],
+      },
+      english: {
+        languageCode: 'en-US',
+        standard: [
+          {
+            name: 'en-US-Standard-A',
+            description: '美式女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'en-US-Standard-B',
+            description: '美式男声 (标准语音)',
+            gender: 'male',
+          },
+          {
+            name: 'en-US-Standard-C',
+            description: '美式女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'en-US-Standard-D',
+            description: '美式男声 (标准语音)',
+            gender: 'male',
+          },
+          {
+            name: 'en-US-Standard-E',
+            description: '美式女声 (标准语音)',
+            gender: 'female',
+          },
+        ],
+        wavenet: [
+          {
+            name: 'en-US-Wavenet-A',
+            description: '美式女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'en-US-Wavenet-B',
+            description: '美式男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'en-US-Wavenet-C',
+            description: '美式女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'en-US-Wavenet-D',
+            description: '美式男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'en-US-Wavenet-E',
+            description: '美式女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'en-US-Wavenet-F',
+            description: '美式男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'en-US-Wavenet-H',
+            description: '美式女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'en-US-Wavenet-I',
+            description: '美式男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'en-US-Wavenet-J',
+            description: '美式女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+        ],
+      },
+      japanese: {
+        languageCode: 'ja-JP',
+        standard: [
+          {
+            name: 'ja-JP-Standard-A',
+            description: '日文女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'ja-JP-Standard-B',
+            description: '日文男声 (标准语音)',
+            gender: 'male',
+          },
+          {
+            name: 'ja-JP-Standard-C',
+            description: '日文女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'ja-JP-Standard-D',
+            description: '日文男声 (标准语音)',
+            gender: 'male',
+          },
+        ],
+        wavenet: [
+          {
+            name: 'ja-JP-Wavenet-A',
+            description: '日文女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'ja-JP-Wavenet-B',
+            description: '日文男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'ja-JP-Wavenet-C',
+            description: '日文女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'ja-JP-Wavenet-D',
+            description: '日文男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+        ],
+      },
+      korean: {
+        languageCode: 'ko-KR',
+        standard: [
+          {
+            name: 'ko-KR-Standard-A',
+            description: '韩文女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'ko-KR-Standard-B',
+            description: '韩文男声 (标准语音)',
+            gender: 'male',
+          },
+          {
+            name: 'ko-KR-Standard-C',
+            description: '韩文女声 (标准语音)',
+            gender: 'female',
+          },
+          {
+            name: 'ko-KR-Standard-D',
+            description: '韩文男声 (标准语音)',
+            gender: 'male',
+          },
+        ],
+        wavenet: [
+          {
+            name: 'ko-KR-Wavenet-A',
+            description: '韩文女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'ko-KR-Wavenet-B',
+            description: '韩文男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+          {
+            name: 'ko-KR-Wavenet-C',
+            description: '韩文女声 (高品质 WaveNet)',
+            gender: 'female',
+          },
+          {
+            name: 'ko-KR-Wavenet-D',
+            description: '韩文男声 (高品质 WaveNet)',
+            gender: 'male',
+          },
+        ],
+      },
+    };
+  }
+
+  /**
+   * VertexAI TTS 语音合成
+   * @param request TTS 请求参数
+   * @returns 语音文件的访问地址和相关信息
+   */
+  async generateVertexAIVoice(
+    request: VertexAiTTSRequestDto,
+  ): Promise<VertexAITSResponseDto> {
+    const startTime = Date.now();
+
+    try {
+      const {
+        text,
+        voiceName = 'cm-CN-Wavenet-A', // 默认使用中文 WaveNet 语音
+        languageCode = 'zh-CN',
+        speakingRate = 1.0,
+        pitch = 0.0,
+        outputFile = `vertexai-tts-${Date.now()}.wav`,
+      } = request;
+
+      this.logger.log(
+        `开始 VertexAI TTS 语音合成，文本长度: ${text.length}, 语音: ${voiceName}`,
+      );
+
+      // 构建语音合成请求
+      const ttsRequest = {
+        input: { text },
+        voice: {
+          languageCode,
+          name: voiceName,
+        },
+        audioConfig: {
+          audioEncoding: 'LINEAR16' as const,
+          speakingRate,
+          pitch,
+          sampleRateHertz: 24000,
+        },
+      };
+
+      // 调用 VertexAI Text-to-Speech API
+      const [response] = await this.ttsClient.synthesizeSpeech(ttsRequest);
+
+      if (!response.audioContent) {
+        throw new Error('VertexAI TTS 未返回音频数据');
+      }
+
+      // 将音频内容转换为 Buffer
+      const audioBuffer = Buffer.from(
+        response.audioContent as string,
+        'base64',
+      );
+
+      // 上传到 OSS
+      const audioUrl = await this.uploadBufferToOss(audioBuffer, outputFile);
+
+      const endTime = Date.now();
+      const generationTime = endTime - startTime;
+
+      const result: VertexAITSResponseDto = {
+        audioUrl,
+        voiceName,
+        characterCount: text.length,
+        generationTime,
+        sampleRate: 24000,
+      };
+
+      this.logger.log(
+        `VertexAI TTS 语音合成成功，字符数: ${text.length}, 耗时: ${generationTime}ms, 文件: ${outputFile}`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error('VertexAI TTS 语音合成失败', {
+        error: error.message,
+        stack: error.stack,
+      });
+
+      if (error.message?.includes('QUOTA_EXCEEDED')) {
+        throw new BadRequestException(
+          'VertexAI TTS 配额已用完，请稍后重试或升级配额',
+        );
+      } else if (error.message?.includes('PERMISSION_DENIED')) {
+        throw new BadRequestException(
+          'VertexAI TTS 权限不足，请检查服务账号权限',
+        );
+      } else if (error.message?.includes('INVALID_ARGUMENT')) {
+        throw new BadRequestException(
+          'VertexAI TTS 请求参数错误，请检查语音名称或语言代码',
+        );
+      } else {
+        throw new BadRequestException(
+          `VertexAI TTS 服务调用失败: ${error.message || '未知错误'}`,
+        );
+      }
+    }
   }
 
   /**

@@ -3,7 +3,7 @@
   "paths": {
     "/gemini/chat": {
       "post": {
-        "description": "接收用户消息，返回 Gemini 模型生成的回复。",
+        "description": "接收用户消息，返回 Gemini 模型生成的回复，包含 token 统计信息。",
         "operationId": "ChatController_handleChat",
         "parameters": [],
         "requestBody": {
@@ -29,9 +29,18 @@
                     {
                       "properties": {
                         "data": {
-                          "type": "string",
+                          "$ref": "#/components/schemas/ChatResponseDto",
                           "description": "Gemini结果",
-                          "example": "你好！很高兴你来这里。有什么我可以帮忙的吗？"
+                          "example": {
+                            "content": "你好！很高兴你来这里。有什么我可以帮忙的吗？",
+                            "usage": {
+                              "promptTokens": 15,
+                              "completionTokens": 25,
+                              "totalTokens": 40
+                            },
+                            "model": "gemini-2.5-flash",
+                            "responseTime": 1200
+                          }
                         }
                       }
                     }
@@ -134,6 +143,279 @@
         "summary": "生成语音接口",
         "tags": [
           "Chat 聊天"
+        ]
+      }
+    },
+    "/deepseek/chat": {
+      "post": {
+        "description": "接收用户消息，返回 DeepSeek 模型生成的回复，包含 token 统计信息。",
+        "operationId": "DeepSeekController_handleDeepSeekChat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAIChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ChatResponseDto",
+                          "description": "DeepSeek结果",
+                          "example": {
+                            "content": "你好！我是DeepSeek，很高兴为您服务！",
+                            "usage": {
+                              "promptTokens": 18,
+                              "completionTokens": 30,
+                              "totalTokens": 48
+                            },
+                            "model": "deepseek/deepseek-v3.2",
+                            "responseTime": 800
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "DeepSeek 聊天接口",
+        "tags": [
+          "DeepSeek 聊天"
+        ]
+      }
+    },
+    "/gpt/chat": {
+      "post": {
+        "description": "接收用户消息，返回 GPT 模型生成的回复，包含 token 统计信息。",
+        "operationId": "GPTController_handleGPTChat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAIChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ChatResponseDto",
+                          "description": "GPT结果",
+                          "example": {
+                            "content": "你好！我是GPT，很高兴为您服务！",
+                            "usage": {
+                              "promptTokens": 16,
+                              "completionTokens": 28,
+                              "totalTokens": 44
+                            },
+                            "model": "pa/gt-4p",
+                            "responseTime": 900
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "GPT 聊天接口",
+        "tags": [
+          "GPT 聊天"
+        ]
+      }
+    },
+    "/vertexai-tts/voices": {
+      "get": {
+        "description": "查询所有可用的 VertexAI Text-to-Speech 语音，包括中文、英文、日文、韩文等多种语言。",
+        "operationId": "VertexAITTSController_getVertexAIVoices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Object",
+                          "description": "VertexAI TTS 语音列表",
+                          "example": {
+                            "chinese": {
+                              "languageCode": "zh-CN",
+                              "standard": [
+                                {
+                                  "name": "cm-CN-Standard-A",
+                                  "description": "中文女声 (标准语音)",
+                                  "gender": "female"
+                                },
+                                {
+                                  "name": "cm-CN-Standard-B",
+                                  "description": "中文女声 (标准语音)",
+                                  "gender": "female"
+                                },
+                                {
+                                  "name": "cm-CN-Standard-C",
+                                  "description": "中文男声 (标准语音)",
+                                  "gender": "male"
+                                },
+                                {
+                                  "name": "cm-CN-Standard-D",
+                                  "description": "中文女声 (标准语音)",
+                                  "gender": "female"
+                                }
+                              ],
+                              "wavenet": [
+                                {
+                                  "name": "cm-CN-Wavenet-A",
+                                  "description": "中文女声 (高品质 WaveNet)",
+                                  "gender": "female"
+                                },
+                                {
+                                  "name": "cm-CN-Wavenet-B",
+                                  "description": "中文男声 (高品质 WaveNet)",
+                                  "gender": "male"
+                                },
+                                {
+                                  "name": "cm-CN-Wavenet-C",
+                                  "description": "中文女声 (高品质 WaveNet)",
+                                  "gender": "female"
+                                },
+                                {
+                                  "name": "cm-CN-Wavenet-D",
+                                  "description": "中文男声 (高品质 WaveNet)",
+                                  "gender": "male"
+                                }
+                              ]
+                            },
+                            "english": {
+                              "languageCode": "en-US",
+                              "standard": [
+                                {
+                                  "name": "en-US-Standard-A",
+                                  "description": "美式女声 (标准语音)",
+                                  "gender": "female"
+                                },
+                                {
+                                  "name": "en-US-Standard-B",
+                                  "description": "美式男声 (标准语音)",
+                                  "gender": "male"
+                                }
+                              ],
+                              "wavenet": [
+                                {
+                                  "name": "en-US-Wavenet-A",
+                                  "description": "美式女声 (高品质 WaveNet)",
+                                  "gender": "female"
+                                },
+                                {
+                                  "name": "en-US-Wavenet-B",
+                                  "description": "美式男声 (高品质 WaveNet)",
+                                  "gender": "male"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取 VertexAI TTS 支持的语音列表",
+        "tags": [
+          "VertexAI TTS"
+        ]
+      }
+    },
+    "/vertexai-tts/generate": {
+      "post": {
+        "description": "使用 Google VertexAI Text-to-Speech 服务生成高质量语音，支持 Standard 和 WaveNet 语音。",
+        "operationId": "VertexAITTSController_handleVertexAITTS",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VertexAiTTSRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/VertexAITSResponseDto",
+                          "description": "VertexAI TTS 语音生成结果",
+                          "example": {
+                            "audioUrl": "https://example-bucket.oss-cn-shanghai.aliyuncs.com/audio/2025-12-04/vertexai-tts-1704312123456.wav",
+                            "voiceName": "cm-CN-Wavenet-A",
+                            "characterCount": 18,
+                            "generationTime": 1200,
+                            "sampleRate": 24000
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "VertexAI TTS 语音合成接口",
+        "tags": [
+          "VertexAI TTS"
         ]
       }
     },
@@ -477,6 +759,65 @@
           "data"
         ]
       },
+      "TokenUsageDto": {
+        "type": "object",
+        "properties": {
+          "promptTokens": {
+            "type": "number",
+            "example": 25,
+            "description": "输入提示的 token 数量"
+          },
+          "completionTokens": {
+            "type": "number",
+            "example": 150,
+            "description": "生成的响应 token 数量"
+          },
+          "totalTokens": {
+            "type": "number",
+            "example": 175,
+            "description": "总 token 数量"
+          }
+        },
+        "required": [
+          "promptTokens",
+          "completionTokens",
+          "totalTokens"
+        ]
+      },
+      "ChatResponseDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "example": "你好！我是AI助手，很高兴为您服务！",
+            "description": "AI 生成的回复内容"
+          },
+          "usage": {
+            "description": "Token 使用统计",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsageDto"
+              }
+            ]
+          },
+          "model": {
+            "type": "string",
+            "example": "gemini-2.5-flash",
+            "description": "使用的模型名称"
+          },
+          "responseTime": {
+            "type": "number",
+            "example": 1200,
+            "description": "响应耗时（毫秒）"
+          }
+        },
+        "required": [
+          "content",
+          "usage",
+          "model",
+          "responseTime"
+        ]
+      },
       "ChatMessageParamsDto": {
         "type": "object",
         "properties": {
@@ -519,6 +860,98 @@
           "outputFile": {
             "type": "string",
             "example": "out.wav",
+            "description": "输出文件名"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "OpenAIChatRequestDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "你好，请介绍一下你自己",
+            "description": "用户输入的消息文本"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "VertexAITSResponseDto": {
+        "type": "object",
+        "properties": {
+          "audioUrl": {
+            "type": "string",
+            "example": "https://your-bucket.oss-region.aliyuncs.com/audio/2025-12-04/output.wav",
+            "description": "生成的语音文件访问地址"
+          },
+          "voiceName": {
+            "type": "string",
+            "example": "cm-CN-Wavenet-A",
+            "description": "使用的语音名称"
+          },
+          "characterCount": {
+            "type": "number",
+            "example": 42,
+            "description": "文本字符数"
+          },
+          "generationTime": {
+            "type": "number",
+            "example": 1500,
+            "description": "生成耗时（毫秒）"
+          },
+          "sampleRate": {
+            "type": "number",
+            "example": 32000,
+            "description": "音频采样率"
+          }
+        },
+        "required": [
+          "audioUrl",
+          "voiceName",
+          "characterCount",
+          "generationTime",
+          "sampleRate"
+        ]
+      },
+      "VertexAiTTSRequestDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "example": "你好，欢迎使用 VertexAI 语音合成服务！",
+            "description": "要转换为语音的文本内容"
+          },
+          "voiceName": {
+            "type": "string",
+            "example": "cm-CN-Wavenet-A",
+            "description": "语音名称，支持 Standard 和 WaveNet 语音"
+          },
+          "languageCode": {
+            "type": "string",
+            "example": "zh-CN",
+            "description": "语言代码"
+          },
+          "speakingRate": {
+            "type": "number",
+            "example": 1,
+            "description": "语音语速 (0.25 - 4.0)"
+          },
+          "pitch": {
+            "type": "number",
+            "example": 0,
+            "description": "音调 (-20.0 - 20.0)"
+          },
+          "outputFile": {
+            "type": "string",
+            "example": "output.wav",
             "description": "输出文件名"
           }
         },

@@ -6,13 +6,15 @@
 
 一个功能完整的后端服务，集成了多种 AI 能力和云服务：
 
-- **AI 能力**：Vertex AI (Gemini 2.5)、OpenAI (PPIO)、MiniMax TTS
+- **AI 能力**：Vertex AI (Gemini 2.5)、DeepSeek、GPT (PPIO)、VertexAI TTS、MiniMax TTS
 - **存储服务**：阿里云 OSS、AWS S3
 - **数据库**：Prisma + MySQL
 - **队列系统**：BullMQ + Redis
 - **核心框架**：NestJS v11 + TypeScript
 - **特色功能**：
-  - 统一响应格式与异常处理
+  - 统一响应格式与异常处理（含 Token 统计）
+  - 多 AI 服务集成（Gemini、DeepSeek、GPT）
+  - 多种 TTS 选择（VertexAI TTS、Gemini TTS、MiniMax TTS）
   - 日志轮转（按日期自动分割）
   - 双 API 文档（Scalar + Swagger）
   - 多环境打包支持
@@ -103,7 +105,8 @@ logs/                            # 日志目录（自动生成）
 ### AI 服务
 - **@google-cloud/vertexai** - Vertex AI Gemini 2.5
 - **@google/genai** - Gemini TTS
-- **OpenAI SDK** - OpenAI API（PPIO 代理）
+- **@google-cloud/text-to-speech** - VertexAI TTS 🆕
+- **OpenAI SDK** - OpenAI API（DeepSeek + GPT via PPIO）
 - **MiniMax API** - 中文 TTS
 
 ### 存储服务
@@ -218,13 +221,37 @@ pnpm run prisma:studio      # 打开 Prisma Studio
 
 所有接口前缀：`/api`
 
-### 聊天与语音（Chat）
+### AI 聊天（Chat）
 
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | `/api/gemini/chat` | Gemini 文本聊天 |
-| POST | `/api/gemini/stream` | Gemini 流式聊天（SSE）|
-| POST | `/api/gemini/generate-voice` | 生成语音（Gemini/MiniMax）|
+| 方法 | 路径 | 描述 | 返回格式 |
+|------|------|------|----------|
+| POST | `/api/gemini/chat` | Gemini 文本聊天，包含 token 统计 | 统一响应格式 ✨ |
+| POST | `/api/gemini/stream` | Gemini 流式聊天（SSE）| Server-Sent Events |
+| POST | `/api/gemini/generate-voice` | 生成语音（Gemini/MiniMax）| 语音文件地址 |
+
+### 新增 AI 服务
+
+#### DeepSeek 聊天
+| 方法 | 路径 | 描述 | 返回格式 |
+|------|------|------|----------|
+| POST | `/api/deepseek/chat` | DeepSeek 文本聊天，包含 token 统计 | 统一响应格式 ✨ |
+
+#### GPT 聊天
+| 方法 | 路径 | 描述 | 返回格式 |
+|------|------|------|----------|
+| POST | `/api/gpt/chat` | GPT 文本聊天，包含 token 统计 | 统一响应格式 ✨ |
+
+#### VertexAI TTS 语音合成 🆕
+| 方法 | 路径 | 描述 | 返回格式 |
+|------|------|------|----------|
+| GET | `/api/vertexai-tts/voices` | 获取支持的语音列表 | 语音信息列表 |
+| POST | `/api/vertexai-tts/generate` | VertexAI TTS 语音合成 | 语音文件地址 + 统计信息 |
+
+> **✨ 统一响应格式说明**：所有聊天接口现在返回结构化数据，包含：
+> - `content`: AI 生成的回复内容
+> - `usage`: Token 使用统计（输入/输出/总数）
+> - `model`: 使用的模型名称
+> - `responseTime`: 响应耗时（毫秒）
 
 ### TTS 任务（TTS Task）
 
@@ -274,16 +301,36 @@ http://localhost:3000/api-docs
 
 ### 1. AI 聊天服务
 
+**统一的聊天响应格式** 🆕
+- 所有聊天接口返回统一的结构化数据
+- 包含 Token 使用统计、响应时间、模型信息
+- 便于成本核算和性能监控
+
 **Gemini 文本聊天**
 - 模型：`gemini-2.5-flash`
 - 支持流式输出（SSE）
 - 自动处理代理
+- 返回 Token 统计信息
 
-**OpenAI/DeepSeek 聊天**
+**DeepSeek 聊天** 🆕
+- 模型：`deepseek/deepseek-v3.2`
 - 通过 PPIO 代理访问
-- 支持流式输出
+- 返回 Token 统计信息
+
+**GPT 聊天** 🆕
+- 模型：`pa/gt-4p`
+- 通过 PPIO 代理访问
+- 返回 Token 统计信息
 
 ### 2. 语音合成（TTS）
+
+**VertexAI TTS** 🆕
+- Google Cloud Text-to-Speech 服务
+- 支持 100+ 语言，400+ 语音
+- Standard 和 WaveNet 两种语音类型
+- 更宽松的配额限制
+- 支持语速、音调调节
+- 查看可用语音：`GET /api/vertexai-tts/voices`
 
 **Gemini TTS**
 - 支持英文语音合成
@@ -341,13 +388,66 @@ logs/
 }
 ```
 
+**聊天响应格式** 🆕：
+```json
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "content": "AI 生成的回复内容",
+    "usage": {
+      "promptTokens": 15,
+      "completionTokens": 30,
+      "totalTokens": 45
+    },
+    "model": "gemini-2.5-flash",
+    "responseTime": 1200
+  }
+}
+```
+
 **错误响应：**
 ```json
 {
   "code": 400,
-  "msg": "请求参数错误",
+  "msg": "具体的错误信息",
   "data": null
 }
+```
+
+### 7. API 使用示例 🆕
+
+**聊天服务示例：**
+```bash
+# Gemini 聊天（含 token 统计）
+curl -X POST http://localhost:3000/api/gemini/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "你好，请介绍一下你自己"}'
+
+# DeepSeek 聊天
+curl -X POST http://localhost:3000/api/deepseek/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "你好，请介绍一下你自己"}'
+
+# GPT 聊天
+curl -X POST http://localhost:3000/api/gpt/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "你好，请介绍一下你自己"}'
+```
+
+**VertexAI TTS 示例：**
+```bash
+# 查看可用语音
+curl -X GET http://localhost:3000/api/vertexai-tts/voices
+
+# 生成语音
+curl -X POST http://localhost:3000/api/vertexai-tts/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "你好，欢迎使用 VertexAI 语音合成服务！",
+    "voiceName": "cm-CN-Wavenet-A",
+    "languageCode": "zh-CN"
+  }'
 ```
 
 ## 📦 部署指南

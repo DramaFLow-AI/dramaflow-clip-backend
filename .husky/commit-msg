@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 提交消息格式检查
+commit_regex="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,50}"
+
+if ! grep -qE "$commit_regex" "$1"; then
+    echo "❌ Invalid commit message format!"
+    echo ""
+    echo "Commit message must follow the Conventional Commits format:"
+    echo "  <type>(<scope>): <description>"
+    echo ""
+    echo "Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert"
+    echo "Example: feat(chat): add DeepSeek and GPT chat interfaces"
+    echo ""
+    echo "Learn more: https://www.conventionalcommits.org/"
+    exit 1
+fi
+
+echo "✅ Commit message format is valid!"

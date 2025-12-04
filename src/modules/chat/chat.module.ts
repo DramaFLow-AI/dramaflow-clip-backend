@@ -1,10 +1,20 @@
 // src/modules/chat/chat.module.ts
 import { Module } from '@nestjs/common';
-import { ChatController } from './chat.controller';
+import {
+  ChatController,
+  DeepSeekController,
+  GPTController,
+  VertexAITTSController,
+} from './chat.controller';
 import { ChatService } from './chat.service';
 
 @Module({
-  controllers: [ChatController],
+  controllers: [
+    ChatController,
+    DeepSeekController,
+    GPTController,
+    VertexAITTSController,
+  ],
   providers: [ChatService],
   exports: [ChatService],
 })
