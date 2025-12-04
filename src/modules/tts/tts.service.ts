@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -10,170 +11,292 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DownloadContent, TtsJobData } from './types';
 import { sys_tts_task_segment_key } from '@prisma/client';
 
+/** 任务状态常量 */
+enum TaskStatus {
+  PENDING = 0, // 待处理
+  SUCCESS = 1, // 成功
+  FAILED = 2, // 失败
+  DEPRECATED = 3, // 废弃
+}
+
+/** 方案状态常量 */
+enum SchemeState {
+  PROCESSING = 1, // 处理中
+  SUCCESS = 2, // 成功
+  FAILED = 3, // 失败
+}
+
 @Injectable()
 export class TtsTaskService {
+  private readonly logger = new Logger(TtsTaskService.name);
+
   constructor(
     private prisma: PrismaService,
     @InjectQueue('ttsQueue') private ttsQueue: Queue<TtsJobData>,
   ) {}
 
-  // 用 Map 保存每个 schemeId 的 Promise 链，保证串行
+  /**
+   * 方案锁机制：用 Map 保存每个 schemeId 的 Promise 链，保证同一方案的串行执行
+   * 防止并发操作导致数据不一致问题
+   */
   private schemeLocks = new Map<number, Promise<void>>();
 
-  private async withLock(schemeId: number, fn: () => Promise<void>) {
+  /**
+   * 执行带锁的操作，确保同一方案的串行执行
+   * @param schemeId 方案 ID
+   * @param fn 要执行的函数
+   */
+  private async withLock(
+    schemeId: number,
+    fn: () => Promise<void>,
+  ): Promise<void> {
     const prev = this.schemeLocks.get(schemeId) || Promise.resolve();
     const next = prev.then(fn).catch((err) => {
-      console.error(`[withLock] schemeId=${schemeId} 出错`, err);
+      this.logger.error(`方案锁执行出错 [schemeId=${schemeId}]`, err);
     });
     this.schemeLocks.set(schemeId, next);
     await next;
   }
 
-  // 创建任务
+  /**
+   * 创建 TTS 任务
+   * @param schemeId 方案 ID
+   * @param actualScheme 实际方案数据数组
+   * @param voiceName 语音名称
+   * @param provider TTS 提供商
+   * @param keepHistory 是否保留历史任务（默认 false，覆盖模式）
+   * @returns 创建的任务统计信息
+   */
   async createTasks(
     schemeId: number,
     actualScheme: any[],
     voiceName: string,
     provider: string,
-    keepHistory: boolean = false, // 默认保留历史
+    keepHistory: boolean = false,
   ) {
-    // 1. 检查是否有未完成任务
-    const unfinished = await this.prisma.sys_tts_task.findFirst({
+    this.logger.log(
+      `开始创建 TTS 任务 [schemeId: ${schemeId}, keepHistory: ${keepHistory}]`,
+    );
+
+    // 1. 检查是否有未完成的任务，避免重复执行
+    const unfinishedTask = await this.prisma.sys_tts_task.findFirst({
       where: {
         scheme_id: schemeId,
-        status: 0, // 待处理的任务
+        status: TaskStatus.PENDING, // 待处理的任务
       },
     });
 
-    if (unfinished) {
+    if (unfinishedTask) {
       throw new ConflictException(
         `方案 ${schemeId} 已有任务正在执行，请等待完成后再重新生成`,
       );
     }
 
-    // 2. 清空 BullMQ 队列，避免旧 Job 干扰
-    const jobs = await this.ttsQueue.getJobs(['waiting', 'delayed', 'active']);
-    const schemeJobs = jobs.filter((job) => job.data.schemeId === schemeId);
+    // 2. 清空 BullMQ 队列中的旧任务，避免干扰
+    const activeJobs = await this.ttsQueue.getJobs([
+      'waiting',
+      'delayed',
+      'active',
+    ]);
+    const schemeJobs = activeJobs.filter(
+      (job) => job.data.schemeId === schemeId,
+    );
+
     for (const job of schemeJobs) {
       await job.remove();
     }
 
+    this.logger.log(`已清理 ${schemeJobs.length} 个队列中的旧任务`);
+
     // 3. 更新方案状态为执行中
     await this.prisma.sys_generate_scheme_manage.update({
       where: { id: schemeId },
-      data: { tts_task_state: 1 },
+      data: { tts_task_state: SchemeState.PROCESSING },
     });
 
-    // 4. 清空旧音频 URL
+    // 4. 清空旧的音频 URL 数据
+    await this.clearAudioUrls(schemeId);
+
+    // 5. 创建新的 TTS 任务
+    const createdTasks: any[] = [];
+    const segmentKeys: sys_tts_task_segment_key[] = ['begin', 'middle', 'end'];
+
+    for (let i = 0; i < actualScheme.length; i++) {
+      const schemeItem = actualScheme[i];
+
+      for (const segmentKey of segmentKeys) {
+        const text =
+          schemeItem.translation[
+            segmentKey as keyof typeof schemeItem.translation
+          ];
+
+        if (keepHistory) {
+          // 保留历史模式：标记旧任务为废弃
+          await this.deprecateOldTasks(schemeId, i, segmentKey);
+          const newTask = await this.createNewTask(
+            schemeId,
+            i,
+            segmentKey,
+            text,
+          );
+          await this.enqueueTask(
+            newTask,
+            text,
+            schemeId,
+            i,
+            segmentKey,
+            voiceName,
+            provider,
+          );
+          createdTasks.push(newTask);
+        } else {
+          // 覆盖模式：删除旧任务，创建新任务
+          await this.deleteOldTasks(schemeId, i, segmentKey);
+          const newTask = await this.createNewTask(
+            schemeId,
+            i,
+            segmentKey,
+            text,
+          );
+          await this.enqueueTask(
+            newTask,
+            text,
+            schemeId,
+            i,
+            segmentKey,
+            voiceName,
+            provider,
+          );
+          createdTasks.push(newTask);
+        }
+      }
+    }
+
+    this.logger.log(
+      `成功创建 ${createdTasks.length} 个 TTS 任务 [schemeId: ${schemeId}]`,
+    );
+    return { totalTasks: createdTasks.length, schemeId };
+  }
+
+  /**
+   * 清空方案中的音频 URL
+   */
+  private async clearAudioUrls(schemeId: number): Promise<void> {
     const record = await this.prisma.sys_generate_scheme_manage.findUnique({
       where: { id: schemeId },
       select: { download_content: true },
     });
 
     if (record?.download_content) {
-      const tempData = JSON.parse(record.download_content) as DownloadContent[];
-      tempData.forEach((item) => {
+      const downloadData = JSON.parse(
+        record.download_content,
+      ) as DownloadContent[];
+      downloadData.forEach((item) => {
         item.audioUrl = {
           beginAudioUrl: '',
           middleAudioUrl: '',
           endAudioUrl: '',
         };
       });
+
       await this.prisma.sys_generate_scheme_manage.update({
         where: { id: schemeId },
-        data: { download_content: JSON.stringify(tempData) },
+        data: { download_content: JSON.stringify(downloadData) },
       });
     }
-
-    // 5. 创建新任务
-    const tasks: any[] = [];
-
-    for (let i = 0; i < actualScheme.length; i++) {
-      const item = actualScheme[i];
-      const keys: ('begin' | 'middle' | 'end')[] = ['begin', 'middle', 'end'];
-
-      for (const key of keys) {
-        const text = item.translation[key];
-
-        if (keepHistory) {
-          // 方案一：保留历史 -> 标记旧任务为废弃
-          await this.prisma.sys_tts_task.updateMany({
-            where: {
-              scheme_id: schemeId,
-              scheme_index: i,
-              segment_key: key,
-              status: { in: [0, 1, 2] }, // 待处理/成功/失败的任务
-            },
-            data: {
-              status: 3, // 废弃
-              error_log: '任务被覆盖，标记为废弃',
-            },
-          });
-
-          // 创建新任务
-          const task = await this.prisma.sys_tts_task.create({
-            data: {
-              scheme_id: schemeId,
-              scheme_index: i,
-              segment_key: key,
-              text_content: text,
-              status: 0,
-              retry_count: 0,
-            },
-          });
-
-          // 添加到队列
-          await this.ttsQueue.add('generateAudio', {
-            taskId: task.id.toString(),
-            text,
-            schemeId,
-            schemeIndex: i,
-            segmentKey: key,
-            voiceName,
-            provider,
-          });
-
-          tasks.push(task);
-        } else {
-          // 方案二：覆盖模式 -> 删除旧任务
-          await this.prisma.sys_tts_task.deleteMany({
-            where: {
-              scheme_id: schemeId,
-              scheme_index: i,
-              segment_key: key,
-            },
-          });
-
-          const task = await this.prisma.sys_tts_task.create({
-            data: {
-              scheme_id: schemeId,
-              scheme_index: i,
-              segment_key: key,
-              text_content: text,
-              status: 0,
-              retry_count: 0,
-            },
-          });
-
-          await this.ttsQueue.add('generateAudio', {
-            taskId: task.id.toString(),
-            text,
-            schemeId,
-            schemeIndex: i,
-            segmentKey: key,
-            voiceName,
-            provider,
-          });
-
-          tasks.push(task);
-        }
-      }
-    }
-
-    return { totalTasks: tasks.length, schemeId };
   }
 
-  // 更新指定数据
+  /**
+   * 标记旧任务为废弃状态
+   */
+  private async deprecateOldTasks(
+    schemeId: number,
+    schemeIndex: number,
+    segmentKey: sys_tts_task_segment_key,
+  ): Promise<void> {
+    await this.prisma.sys_tts_task.updateMany({
+      where: {
+        scheme_id: schemeId,
+        scheme_index: schemeIndex,
+        segment_key: segmentKey,
+        status: {
+          in: [TaskStatus.PENDING, TaskStatus.SUCCESS, TaskStatus.FAILED],
+        },
+      },
+      data: {
+        status: TaskStatus.DEPRECATED,
+        error_log: '任务被覆盖，标记为废弃',
+      },
+    });
+  }
+
+  /**
+   * 删除旧任务
+   */
+  private async deleteOldTasks(
+    schemeId: number,
+    schemeIndex: number,
+    segmentKey: sys_tts_task_segment_key,
+  ): Promise<void> {
+    await this.prisma.sys_tts_task.deleteMany({
+      where: {
+        scheme_id: schemeId,
+        scheme_index: schemeIndex,
+        segment_key: segmentKey,
+      },
+    });
+  }
+
+  /**
+   * 创建新的 TTS 任务
+   */
+  private async createNewTask(
+    schemeId: number,
+    schemeIndex: number,
+    segmentKey: sys_tts_task_segment_key,
+    text: string,
+  ) {
+    return await this.prisma.sys_tts_task.create({
+      data: {
+        scheme_id: schemeId,
+        scheme_index: schemeIndex,
+        segment_key: segmentKey,
+        text_content: text,
+        status: TaskStatus.PENDING,
+        retry_count: 0,
+      },
+    });
+  }
+
+  /**
+   * 将任务添加到队列
+   */
+  private async enqueueTask(
+    task: any,
+    text: string,
+    schemeId: number,
+    schemeIndex: number,
+    segmentKey: sys_tts_task_segment_key,
+    voiceName: string,
+    provider: string,
+  ): Promise<void> {
+    await this.ttsQueue.add('generateAudio', {
+      taskId: task.id.toString(),
+      text,
+      schemeId,
+      schemeIndex,
+      segmentKey,
+      voiceName,
+      provider,
+    });
+  }
+
+  /**
+   * 更新指定的 TTS 任务
+   * @param schemeId 方案 ID
+   * @param updates 更新内容数组
+   * @returns 更新的任务统计信息
+   */
   async updateTasksExclusive(
     schemeId: number,
     updates: {
@@ -182,33 +305,38 @@ export class TtsTaskService {
       newText: string;
     }[],
   ) {
-    // 1. 检查是否有未完成任务
-    const running = await this.prisma.sys_tts_task.findFirst({
+    this.logger.log(
+      `开始更新 TTS 任务 [schemeId: ${schemeId}, 更新数量: ${updates.length}]`,
+    );
+
+    // 1. 检查是否有正在执行的任务，避免冲突
+    const runningTask = await this.prisma.sys_tts_task.findFirst({
       where: {
         scheme_id: schemeId,
-        status: { in: [0] }, // 0=进行中
+        status: { in: [TaskStatus.PENDING] }, // 进行中的任务
       },
     });
 
-    if (running) {
+    if (runningTask) {
       throw new ConflictException(
         `方案 ${schemeId} 已有任务正在执行，请等待完成后再重新生成`,
       );
     }
 
-    // 储存任务队列
-    const tasks: any[] = [];
-
-    // 2. 查询一次 voice 信息，避免循环里多次查库
-    const voiceRecord = await this.prisma.sys_tts_task.findFirst({
+    // 2. 查询语音配置信息，避免循环中重复查询
+    const voiceConfig = await this.prisma.sys_tts_task.findFirst({
       where: { scheme_id: schemeId },
       select: { voice_name: true, tts_model: true },
     });
-    const voiceName = voiceRecord?.voice_name ?? '';
-    const ttsModel = voiceRecord?.tts_model ?? '';
+    const voiceName = voiceConfig?.voice_name ?? '';
+    const ttsModel = voiceConfig?.tts_model ?? '';
 
+    const updatedTasks: any[] = [];
+
+    // 3. 逐个更新任务
     for (const { schemeIndex, segmentKey, newText } of updates) {
-      const existing = await this.prisma.sys_tts_task.findUnique({
+      // 检查任务是否存在
+      const existingTask = await this.prisma.sys_tts_task.findUnique({
         where: {
           scheme_id_scheme_index_segment_key: {
             scheme_id: schemeId,
@@ -218,35 +346,34 @@ export class TtsTaskService {
         },
       });
 
-      if (!existing) {
+      if (!existingTask) {
         throw new NotFoundException(
           `任务不存在: schemeId=${schemeId}, index=${schemeIndex}, key=${segmentKey}`,
         );
       }
 
-      // 更新任务记录
-      const updated = await this.prisma.sys_tts_task.update({
-        where: { id: existing.id },
+      // 更新任务内容并重置状态
+      const updatedTask = await this.prisma.sys_tts_task.update({
+        where: { id: existingTask.id },
         data: {
           text_content: newText,
           retry_count: 0,
-          status: 0, // 重置为待执行
-          audio_url: null,
-        },
-      });
-      // 更新解说记录任务执行状态
-      await this.prisma.sys_generate_scheme_manage.update({
-        where: { id: Number(schemeId) },
-        data: {
-          tts_task_state: 1,
+          status: TaskStatus.PENDING, // 重置为待执行状态
+          audio_url: null, // 清空旧音频 URL
         },
       });
 
-      // 入队生成任务
+      // 更新方案状态为处理中
+      await this.prisma.sys_generate_scheme_manage.update({
+        where: { id: Number(schemeId) },
+        data: { tts_task_state: SchemeState.PROCESSING },
+      });
+
+      // 重新加入队列进行处理
       await this.ttsQueue.add(
         'generateAudio',
         {
-          taskId: updated.id.toString(),
+          taskId: updatedTask.id.toString(),
           text: newText,
           schemeId,
           schemeIndex,
@@ -255,16 +382,19 @@ export class TtsTaskService {
           provider: ttsModel,
         },
         {
-          jobId: `tts-${updated.id}-${Date.now()}`,
-          removeOnComplete: true,
-          removeOnFail: false,
+          jobId: `tts-${updatedTask.id}-${Date.now()}`,
+          removeOnComplete: true, // 完成后自动移除
+          removeOnFail: false, // 失败时保留以便排查问题
         },
       );
 
-      tasks.push(updated);
+      updatedTasks.push(updatedTask);
     }
 
-    return { totalTasks: tasks.length, schemeId };
+    this.logger.log(
+      `成功更新 ${updatedTasks.length} 个 TTS 任务 [schemeId: ${schemeId}]`,
+    );
+    return { totalTasks: updatedTasks.length, schemeId };
   }
 
   // 更新音频文件
@@ -322,102 +452,141 @@ export class TtsTaskService {
   //     }
   //   });
   // }
-  // 更新音频文件（只更新对应字段，不清空原有内容）
+  /**
+   * 更新方案中指定片段的音频文件 URL
+   * 使用锁机制确保并发安全，只更新对应字段，保留原有内容
+   * @param schemeId 方案 ID
+   * @param schemeIndex 方案索引
+   * @param segmentKey 片段键值
+   * @param audioUrl 音频文件 URL
+   */
   async updateSegmentAudio(
     schemeId: bigint,
     schemeIndex: number,
     segmentKey: string,
     audioUrl: string,
-  ) {
+  ): Promise<void> {
     await this.withLock(Number(schemeId), async () => {
+      // 查询方案信息
       const scheme = await this.prisma.sys_generate_scheme_manage.findUnique({
         where: { id: Number(schemeId) },
         select: { download_content: true },
       });
-      if (!scheme) throw new Error(`任务 ${schemeId} 不存在`);
 
-      if (scheme.download_content) {
-        const downloadContentJSON = JSON.parse(
+      if (!scheme) {
+        throw new Error(`方案 ${schemeId} 不存在`);
+      }
+
+      if (!scheme.download_content) {
+        this.logger.warn(
+          `方案 ${schemeId} 的 download_content 为空，跳过音频 URL 更新`,
+        );
+        return;
+      }
+
+      try {
+        // 解析下载内容 JSON
+        const downloadContentData = JSON.parse(
           scheme.download_content,
         ) as any[];
 
-        if (!downloadContentJSON[schemeIndex]) {
+        // 检查索引有效性
+        if (!downloadContentData[schemeIndex]) {
           throw new Error(
-            `Segment not found: schemeId=${schemeId}, index=${schemeIndex}`,
+            `片段索引超出范围: schemeId=${schemeId}, index=${schemeIndex}`,
           );
         }
 
-        // 确保 audioUrl 存在且为对象（保留已有内容）
+        // 确保 audioUrl 对象存在且类型正确
+        const segment = downloadContentData[schemeIndex];
         if (
-          !downloadContentJSON[schemeIndex].audioUrl ||
-          typeof downloadContentJSON[schemeIndex].audioUrl !== 'object' ||
-          Array.isArray(downloadContentJSON[schemeIndex].audioUrl)
+          !segment.audioUrl ||
+          typeof segment.audioUrl !== 'object' ||
+          Array.isArray(segment.audioUrl)
         ) {
-          downloadContentJSON[schemeIndex].audioUrl = {};
+          segment.audioUrl = {};
         }
 
-        // 只更新对应字段
-        downloadContentJSON[schemeIndex].audioUrl[`${segmentKey}AudioUrl`] =
-          audioUrl;
+        // 只更新对应的音频字段，保留其他字段
+        const audioFieldKey = `${segmentKey}AudioUrl`;
+        segment.audioUrl[audioFieldKey] = audioUrl;
 
-        // 更新 DB
+        // 保存更新后的数据
         await this.prisma.sys_generate_scheme_manage.update({
           where: { id: Number(schemeId) },
-          data: { download_content: JSON.stringify(downloadContentJSON) },
+          data: { download_content: JSON.stringify(downloadContentData) },
         });
+
+        this.logger.log(
+          `已更新音频 URL [schemeId: ${schemeId}, index: ${schemeIndex}, key: ${audioFieldKey}]`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `更新音频 URL 失败 [schemeId: ${schemeId}, index: ${schemeIndex}]`,
+          error,
+        );
+        throw error;
       }
     });
   }
 
-  // 查询任务状态
+  /**
+   * 查询方案的任务状态详情
+   * @param schemeId 方案 ID
+   * @returns 任务列表，包含解析后的下载内容
+   */
   async getStatus(schemeId: number) {
-    // 查询任务
+    this.logger.log(`查询任务状态 [schemeId: ${schemeId}]`);
+
+    // 查询所有相关任务
     const tasks = await this.prisma.sys_tts_task.findMany({
       where: { scheme_id: BigInt(schemeId) },
     });
 
-    // 查询方案的 download_content
+    // 查询方案的下载内容配置
     const scheme = await this.prisma.sys_generate_scheme_manage.findUnique({
       where: { id: schemeId },
       select: { download_content: true },
     });
 
-    // 扁平化并解析 JSON，包括 schemeContent 二次解析
-    return tasks.map((task) => {
-      let downloadContent: any = null;
+    // 解析并处理下载内容 JSON
+    let parsedDownloadContent: any = null;
 
-      if (scheme?.download_content) {
-        try {
-          // 先解析成数组
-          const parsedArray: any[] = JSON.parse(scheme.download_content);
+    if (scheme?.download_content) {
+      try {
+        // 解析主 JSON 数组
+        const downloadArray: any[] = JSON.parse(scheme.download_content);
 
-          // 遍历数组，对每个元素的 schemeContent 进行二次解析
-          downloadContent = parsedArray.map((item) => {
-            if (item.schemeContent && typeof item.schemeContent === 'string') {
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                item.schemeContent = JSON.parse(item.schemeContent);
-              } catch (err) {
-                console.error('解析 schemeContent 出错:', err);
-                item.schemeContent = null;
-              }
+        // 对每个元素的 schemeContent 进行二次解析
+        parsedDownloadContent = downloadArray.map((item) => {
+          if (item.schemeContent && typeof item.schemeContent === 'string') {
+            try {
+              item.schemeContent = JSON.parse(item.schemeContent);
+            } catch (parseError) {
+              this.logger.error('解析 schemeContent 出错:', parseError);
+              item.schemeContent = null;
             }
-            return item;
-          });
-        } catch (err) {
-          console.error('解析 download_content 出错:', err);
-          downloadContent = null;
-        }
+          }
+          return item;
+        });
+      } catch (error) {
+        this.logger.error('解析 download_content 出错:', error);
+        parsedDownloadContent = null;
       }
+    }
 
-      return {
-        ...task,
-        download_content: downloadContent,
-      };
-    });
+    // 返回任务数据与解析后的下载内容
+    return tasks.map((task) => ({
+      ...task,
+      download_content: parsedDownloadContent,
+    }));
   }
 
-  // 查询整体任务状态 + 各状态数量
+  /**
+   * 查询方案的整体任务状态统计
+   * @param schemeId 方案 ID
+   * @returns 整体状态和各状态的任务数量统计
+   */
   async getOverallStatus(schemeId: number): Promise<{
     overall: 'unfinished' | 'failed' | 'success';
     stats: {
@@ -427,6 +596,9 @@ export class TtsTaskService {
       total: number;
     };
   }> {
+    this.logger.log(`查询整体任务状态统计 [schemeId: ${schemeId}]`);
+
+    // 查询所有任务的状态
     const tasks = await this.prisma.sys_tts_task.findMany({
       where: { scheme_id: BigInt(schemeId) },
       select: { status: true },
@@ -436,84 +608,124 @@ export class TtsTaskService {
       throw new BadRequestException(`方案 ${schemeId} 没有任务记录`);
     }
 
-    let success = 0;
-    let failed = 0;
-    let unfinished = 0;
+    // 统计各状态任务数量
+    let successCount = 0;
+    let failedCount = 0;
+    let unfinishedCount = 0;
 
-    for (const t of tasks) {
-      if (t.status === 1) success++;
-      else if (t.status === 2) failed++;
-      else unfinished++;
+    for (const task of tasks) {
+      switch (task.status) {
+        case TaskStatus.SUCCESS:
+          successCount++;
+          break;
+        case TaskStatus.FAILED:
+          failedCount++;
+          break;
+        default:
+          unfinishedCount++;
+          break;
+      }
     }
 
-    let overall: 'unfinished' | 'failed' | 'success';
-    if (unfinished > 0) {
-      overall = 'unfinished';
-    } else if (failed > 0) {
-      overall = 'failed';
+    // 确定整体状态
+    let overallStatus: 'unfinished' | 'failed' | 'success';
+    if (unfinishedCount > 0) {
+      overallStatus = 'unfinished'; // 有待处理任务
+    } else if (failedCount > 0) {
+      overallStatus = 'failed'; // 没有待处理但有失败任务
     } else {
-      overall = 'success';
+      overallStatus = 'success'; // 全部成功
     }
+
+    const statusStats = {
+      success: successCount,
+      failed: failedCount,
+      unfinished: unfinishedCount,
+      total: tasks.length,
+    };
+
+    this.logger.log(
+      `方案状态统计 [schemeId: ${schemeId}] - 整体状态: ${overallStatus}, ${JSON.stringify(statusStats)}`,
+    );
 
     return {
-      overall,
-      stats: {
-        success,
-        failed,
-        unfinished,
-        total: tasks.length,
-      },
+      overall: overallStatus,
+      stats: statusStats,
     };
   }
 
-  // 重试失败任务
+  /**
+   * 重试指定的失败任务
+   * @param schemeId 方案 ID
+   * @param failedIndexes 失败任务的索引列表
+   * @param voiceName 语音名称
+   * @param provider TTS 提供商
+   * @returns 重试的任务数量统计
+   */
   async retryFailedTasks(
     schemeId: number,
     failedIndexes: any[],
     voiceName: string,
     provider: string,
   ) {
-    let count = 0;
+    this.logger.log(
+      `开始重试失败任务 [schemeId: ${schemeId}, 任务数量: ${failedIndexes.length}]`,
+    );
+
+    let retriedCount = 0;
 
     for (const { schemeIndex, segmentKey } of failedIndexes) {
-      const task = await this.prisma.sys_tts_task.upsert({
-        where: {
-          scheme_id_scheme_index_segment_key: {
+      try {
+        // 使用 upsert 操作：存在则更新，不存在则创建
+        const task = await this.prisma.sys_tts_task.upsert({
+          where: {
+            scheme_id_scheme_index_segment_key: {
+              scheme_id: schemeId,
+              scheme_index: schemeIndex,
+              segment_key: segmentKey,
+            },
+          },
+          update: {
+            status: TaskStatus.PENDING, // 重置为待处理状态
+            retry_count: { increment: 1 }, // 增加重试次数
+            audio_url: null, // 清空音频 URL
+            error_log: null, // 清空错误日志
+          },
+          create: {
             scheme_id: schemeId,
             scheme_index: schemeIndex,
             segment_key: segmentKey,
+            text_content: '', // 如果原来不存在，创建一个空的占位任务
+            status: TaskStatus.PENDING,
+            retry_count: 1,
           },
-        },
-        update: {
-          status: 0,
-          retry_count: { increment: 1 },
-          audio_url: null,
-          error_log: null,
-        },
-        create: {
-          scheme_id: schemeId,
-          scheme_index: schemeIndex,
-          segment_key: segmentKey,
-          text_content: '', // 如果原来不存在，就建一个空的占位
-          status: 0,
-          retry_count: 1,
-        },
-      });
+        });
 
-      // 重新入队
-      await this.ttsQueue.add('generateAudio', {
-        taskId: task.id.toString(),
-        text: task.text_content,
-        schemeId,
-        schemeIndex,
-        segmentKey,
-        voiceName,
-        provider,
-      });
+        // 重新将任务加入处理队列
+        await this.ttsQueue.add('generateAudio', {
+          taskId: task.id.toString(),
+          text: task.text_content,
+          schemeId,
+          schemeIndex,
+          segmentKey,
+          voiceName,
+          provider,
+        });
 
-      count++;
+        retriedCount++;
+        this.logger.log(
+          `已重试任务 [taskId: ${task.id}, index: ${schemeIndex}, key: ${segmentKey}]`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `重试任务失败 [schemeId: ${schemeId}, index: ${schemeIndex}, key: ${segmentKey}]`,
+          error,
+        );
+        // 继续处理其他任务，不因为单个失败而中断整个重试流程
+      }
     }
 
-    return { retried: count };
+    this.logger.log(`成功重试 ${retriedCount} 个任务 [schemeId: ${schemeId}]`);
+    return { retried: retriedCount };
   }
 }

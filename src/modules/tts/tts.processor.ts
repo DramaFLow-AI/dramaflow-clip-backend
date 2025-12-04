@@ -1,18 +1,35 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatService } from '../chat/chat.service';
 import { TtsTaskService } from './tts.service';
 import { TtsJobData } from './types';
 import { v4 as uuid } from 'uuid';
 
+/** 任务状态常量 */
+enum TaskStatus {
+  PENDING = 0, // 待处理/失败但可重试
+  SUCCESS = 1, // 成功
+  FAILED = 2, // 最终失败
+}
+
+/** 方案状态常量 */
+enum SchemeState {
+  PROCESSING = 1, // 处理中
+  SUCCESS = 2, // 成功（有成功任务）
+  FAILED = 3, // 失败（全部失败）
+}
+
 @Processor('ttsQueue', {
   limiter: {
-    max: 10, // RPM限制
-    duration: 60000, // 1分钟
+    max: 10, // 每分钟最多处理10个任务（RPM限制）
+    duration: 60000, // 1分钟时间窗口
   },
 })
 export class TtsTaskProcessor extends WorkerHost {
+  private readonly logger = new Logger(TtsTaskProcessor.name);
+
   constructor(
     private prisma: PrismaService,
     private chatService: ChatService,
@@ -21,6 +38,11 @@ export class TtsTaskProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * 处理 TTS 任务队列中的任务
+   * @param job BullMQ 任务对象，包含 TTS 任务所需的所有参数
+   * @returns 处理结果，包含成功状态和音频 URL
+   */
   async process(job: Job<TtsJobData>) {
     const {
       taskId,
@@ -32,26 +54,27 @@ export class TtsTaskProcessor extends WorkerHost {
       provider,
     } = job.data;
 
-    console.log('任务开始执行========================');
-    console.log('voiceName:', voiceName);
+    this.logger.log(
+      `开始处理 TTS 任务 [ID: ${taskId}] - 语音: ${voiceName}, 提供商: ${provider}`,
+    );
 
     try {
-      // 确认任务存在
-      const task = await this.prisma.sys_tts_task.findUnique({
+      // 1. 验证任务存在性
+      const existingTask = await this.prisma.sys_tts_task.findUnique({
         where: { id: Number(taskId) },
         select: { id: true },
       });
-      if (!task) {
-        throw new Error(`任务 ${taskId} 不存在`);
+      if (!existingTask) {
+        throw new Error(`任务 ID ${taskId} 不存在`);
       }
 
-      // 更新 voiceName和tts_model
+      // 2. 更新任务配置信息（语音名称和 TTS 模型）
       await this.prisma.sys_tts_task.update({
         where: { id: Number(taskId) },
         data: { voice_name: voiceName, tts_model: provider },
       });
 
-      // 调用 Gemini TTS 生成语音
+      // 3. 调用 TTS 服务生成语音文件
       const audioUrl = await this.chatService.generateVoice(
         text,
         voiceName,
@@ -59,18 +82,18 @@ export class TtsTaskProcessor extends WorkerHost {
         provider,
       );
 
-      // 成功：更新任务状态
+      // 4. 更新任务状态为成功
       await this.prisma.sys_tts_task.update({
         where: { id: Number(taskId) },
         data: {
-          status: 1, // 成功
+          status: TaskStatus.SUCCESS,
           audio_url: audioUrl,
-          retry_count: 0, // 成功时清零
-          error_log: null,
+          retry_count: 0, // 成功时重置重试次数
+          error_log: null, // 清空错误日志
         },
       });
 
-      // 更新方案 JSON 字段
+      // 5. 更新方案中的音频信息
       await this.ttsTaskService.updateSegmentAudio(
         BigInt(schemeId),
         schemeIndex,
@@ -78,91 +101,114 @@ export class TtsTaskProcessor extends WorkerHost {
         audioUrl,
       );
 
+      this.logger.log(
+        `TTS 任务 [ID: ${taskId}] 处理成功，音频 URL: ${audioUrl}`,
+      );
       return { success: true, audioUrl };
     } catch (error: any) {
-      const errMsg = error?.message || String(error);
+      const errorMessage = error?.message || String(error);
+      this.logger.error(`TTS 任务 [ID: ${taskId}] 处理失败: ${errorMessage}`);
 
-      console.error(`[process] 任务 ${taskId} 失败: ${errMsg}`);
-
-      // 每次失败，retry_count +1
-      const task = await this.prisma.sys_tts_task.findUnique({
+      // 增加重试计数并更新任务状态
+      const currentTask = await this.prisma.sys_tts_task.findUnique({
         where: { id: Number(taskId) },
         select: { retry_count: true },
       });
 
-      const newRetryCount = (task?.retry_count || 0) + 1;
+      const newRetryCount = (currentTask?.retry_count || 0) + 1;
 
       await this.prisma.sys_tts_task.update({
         where: { id: Number(taskId) },
         data: {
-          status: 0, // 失败但 BullMQ 会继续重试
+          status: TaskStatus.PENDING, // 失败但可重试状态
           retry_count: newRetryCount,
-          error_log: `第 ${newRetryCount} 次失败: ${errMsg}`,
+          error_log: `第 ${newRetryCount} 次失败: ${errorMessage}`,
         },
       });
 
-      throw error; // 交给 BullMQ 判断是否还有重试
+      throw error; // 重新抛出错误，让 BullMQ 处理重试逻辑
     }
   }
 
   /**
-   * 公共方法：检查方案下的所有任务是否已完成，并更新方案状态
+   * 检查方案下的所有任务是否已完成，并更新方案状态
+   * @param schemeId 方案 ID
    */
-  private async checkSchemeTasks(schemeId: bigint) {
-    const unfinished = await this.prisma.sys_tts_task.count({
-      where: { scheme_id: schemeId, status: 0 },
+  private async checkSchemeTasks(schemeId: bigint): Promise<void> {
+    // 统计待处理的任务数量
+    const unfinishedCount = await this.prisma.sys_tts_task.count({
+      where: { scheme_id: schemeId, status: TaskStatus.PENDING },
     });
 
-    console.log(`[检查任务完成] schemeId=${schemeId}, 未完成=${unfinished}`);
+    this.logger.log(`方案 [ID: ${schemeId}] 待完成任务数: ${unfinishedCount}`);
 
-    if (unfinished > 0) return;
+    // 如果还有待处理的任务，直接返回
+    if (unfinishedCount > 0) return;
 
-    const failed = await this.prisma.sys_tts_task.count({
-      where: { scheme_id: schemeId, status: 2 },
+    // 统计最终失败和成功的任务数量
+    const failedCount = await this.prisma.sys_tts_task.count({
+      where: { scheme_id: schemeId, status: TaskStatus.FAILED },
     });
 
-    const success = await this.prisma.sys_tts_task.count({
-      where: { scheme_id: schemeId, status: 1 },
+    const successCount = await this.prisma.sys_tts_task.count({
+      where: { scheme_id: schemeId, status: TaskStatus.SUCCESS },
     });
 
-    const total = failed + success;
+    const totalCompletedTasks = failedCount + successCount;
 
-    if (total === 0) {
-      console.log(`[检查任务完成] schemeId=${schemeId} 没有任务，跳过更新`);
+    // 如果没有已完成的任务，跳过状态更新
+    if (totalCompletedTasks === 0) {
+      this.logger.warn(`方案 [ID: ${schemeId}] 没有已完成的任务，跳过状态更新`);
       return;
     }
 
-    // const newState = failed === total ? 3 : 2; // 全部失败=3，有成功=2
-    const newState = failed > 1 ? 3 : 2; // 只要有一条失败，状态就为3，没有一条失败，就改为2，也就是成功
+    // 确定方案最终状态
+    // 注：根据业务逻辑，只要有任何失败任务，整个方案状态就是失败
+    const finalState =
+      failedCount > 0 ? SchemeState.FAILED : SchemeState.SUCCESS;
 
+    // 更新方案状态
     await this.prisma.sys_generate_scheme_manage.update({
       where: { id: Number(schemeId) },
-      data: { tts_task_state: newState },
+      data: { tts_task_state: finalState },
     });
 
-    console.log(
-      `方案 ${schemeId} 所有任务已结束，状态=${newState === 2 ? '部分成功' : '全部失败'}`,
+    const statusDescription =
+      finalState === SchemeState.SUCCESS ? '成功' : '失败';
+
+    this.logger.log(
+      `方案 [ID: ${schemeId}] 所有任务已完成 - 最终状态: ${statusDescription} (成功: ${successCount}, 失败: ${failedCount})`,
     );
   }
 
+  /**
+   * 任务完成事件处理
+   * 当任务成功完成时触发，检查是否需要更新方案状态
+   */
   @OnWorkerEvent('completed')
-  async onCompleted(job: Job) {
+  async onCompleted(job: Job): Promise<void> {
+    this.logger.log(`TTS 任务 [ID: ${job.id}] 已成功完成`);
     await this.checkSchemeTasks(BigInt(job.data.schemeId));
   }
 
+  /**
+   * 任务失败事件处理
+   * 当任务最终失败（所有重试都用尽）时触发
+   */
   @OnWorkerEvent('failed')
-  async onFailed(job: Job, err: Error) {
-    console.error(`任务 ${job.id} 最终失败:`, err.message);
+  async onFailed(job: Job, err: Error): Promise<void> {
+    this.logger.error(`TTS 任务 [ID: ${job.id}] 最终失败: ${err.message}`);
 
-    // BullMQ 确认任务彻底失败 → 标记为最终失败
+    // 将任务标记为最终失败状态
     await this.prisma.sys_tts_task.update({
       where: { id: Number(job.data.taskId) },
       data: {
-        status: 2, // 最终失败
+        status: TaskStatus.FAILED,
         error_log: `最终失败: ${err.message}`,
       },
     });
 
+    // 检查并更新方案状态
     await this.checkSchemeTasks(BigInt(job.data.schemeId));
   }
 }
