@@ -121,6 +121,41 @@ export class ChatResponseDto {
 }
 
 /**
+ * 流式聊天响应的数据结构
+ */
+export class StreamChatResponseDto {
+  @ApiProperty({
+    example: '你好！我是AI助手，很高兴为您服务！',
+    description: 'AI 生成的部分回复内容',
+  })
+  content: string;
+
+  @ApiProperty({
+    type: TokenUsageDto,
+    description: '当前 Token 使用统计（流式中可能为估算值）',
+  })
+  usage: TokenUsageDto;
+
+  @ApiProperty({
+    example: 'gemini-2.5-flash',
+    description: '使用的模型名称',
+  })
+  model: string;
+
+  @ApiProperty({
+    example: 1200,
+    description: '当前响应耗时（毫秒）',
+  })
+  responseTime: number;
+
+  @ApiProperty({
+    example: false,
+    description: '是否为最后一个响应块',
+  })
+  isComplete: boolean;
+}
+
+/**
  * VertexAI TTS 语音生成请求DTO
  */
 export class VertexAiTTSRequestDto {

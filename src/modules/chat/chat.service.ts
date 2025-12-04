@@ -237,26 +237,140 @@ export class ChatService {
   }
 
   /**
-   * 流式聊天 (使用 OpenAI/DeepSeek)
+   * Gemini 流式聊天
    * @param prompt 用户输入的文本
-   * @param onChunk 接收文本块的回调函数
+   * @param onChunk 接收结构化数据块的回调函数
    */
-  async chatStream(
+  async geminiChatStream(
     prompt: string,
-    onChunk: (text: string) => void,
+    onChunk: (data: {
+      content: string;
+      usage: TokenUsageDto;
+      model: string;
+      responseTime: number;
+      isComplete: boolean;
+    }) => void,
   ): Promise<void> {
-    const stream = await this.openAIClient.chat.completions.create({
-      model: 'deepseek/deepseek-v3.2',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 512,
-      stream: true,
-    });
+    try {
+      const startTime = Date.now();
+      const request = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 2048,
+          temperature: 0.7,
+        },
+      };
 
-    for await (const chunk of stream) {
-      const content = chunk.choices?.[0]?.delta?.content;
-      if (content) {
-        onChunk(content);
+      this.logger.log(
+        `开始 Gemini 流式聊天请求，prompt 长度: ${prompt.length}`,
+      );
+
+      // 使用 VertexAI 的流式 API
+      const result = await this.genModel.generateContentStream(request);
+
+      let fullText = '';
+      const usage = new TokenUsageDto();
+
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (chunkText) {
+          fullText += chunkText;
+
+          const currentTime = Date.now();
+          const responseTime = currentTime - startTime;
+
+          // 构建当前响应数据
+          const responseData = {
+            content: fullText,
+            usage: {
+              promptTokens: 0, // 流式中可能无法准确获取，暂时设为0
+              completionTokens: Math.ceil(fullText.length / 4), // 粗略估算
+              totalTokens: Math.ceil(fullText.length / 4),
+            },
+            model: 'gemini-2.5-flash',
+            responseTime,
+            isComplete: false, // 流式过程中都不是最终响应
+          };
+
+          onChunk(responseData);
+        }
       }
+
+      // 获取最终的 token 统计信息
+      const finalResponse = await result.response;
+      const usageMetadata = finalResponse?.usageMetadata;
+
+      if (usageMetadata) {
+        usage.promptTokens = usageMetadata.promptTokenCount || 0;
+        usage.completionTokens = usageMetadata.candidatesTokenCount || 0;
+        usage.totalTokens = usageMetadata.totalTokenCount || 0;
+      } else {
+        // 如果没有返回 token 统计，使用估算值
+        usage.promptTokens = Math.ceil(prompt.length / 4);
+        usage.completionTokens = Math.ceil(fullText.length / 4);
+        usage.totalTokens = usage.promptTokens + usage.completionTokens;
+        this.logger.warn('Gemini 流式未返回 token 使用统计，使用估算值');
+      }
+
+      // 检查最终结果的安全性
+      const candidates = finalResponse?.candidates;
+      if (candidates && candidates.length > 0) {
+        const firstCandidate = candidates[0];
+        const finishReason = firstCandidate?.finishReason;
+
+        if (finishReason && finishReason !== FinishReason.STOP) {
+          this.logger.warn(`Gemini 流式响应异常结束: ${finishReason}`);
+
+          switch (finishReason) {
+            case FinishReason.SAFETY:
+              throw new BadRequestException(
+                '您的请求因安全策略被阻止，请修改后重试',
+              );
+            case FinishReason.RECITATION:
+              throw new BadRequestException(
+                '您的请求可能触发了版权内容检测，请修改后重试',
+              );
+            case FinishReason.MAX_TOKENS:
+              throw new BadRequestException('响应内容超出最大长度限制');
+            case FinishReason.OTHER:
+            default:
+              throw new BadRequestException(
+                `Gemini 响应异常: ${finishReason}，请稍后重试`,
+              );
+          }
+        }
+      }
+
+      // 发送最终的完整响应
+      const finalTime = Date.now();
+      const finalResponseData = {
+        content: fullText,
+        usage,
+        model: 'gemini-2.5-flash',
+        responseTime: finalTime - startTime,
+        isComplete: true, // 标记为最终响应
+      };
+
+      onChunk(finalResponseData);
+
+      this.logger.log(
+        `Gemini 流式聊天成功，总长度: ${fullText.length}, Token使用: ${usage.totalTokens}, 总耗时: ${finalTime - startTime}ms`,
+      );
+    } catch (error) {
+      // 如果已经是 BadRequestException，直接抛出
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      // 记录其他错误
+      this.logger.error('Gemini 流式聊天请求失败', {
+        error: error.message,
+        stack: error.stack,
+      });
+
+      throw new BadRequestException(
+        `Gemini 流式服务调用失败: ${error.message || '未知错误'}`,
+      );
     }
   }
 

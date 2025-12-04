@@ -16,6 +16,7 @@ import {
   GenerateVoiceRequestDto,
   OpenAIChatRequestDto,
   ChatResponseDto,
+  StreamChatResponseDto,
   VertexAiTTSRequestDto,
   VertexAITSResponseDto,
 } from './dto/chat.dto';
@@ -59,15 +60,14 @@ export class ChatController {
   }
 
   @Post('stream')
-  @ApiOperation({ summary: 'Gemini 流式聊天接口（SSE）' })
+  @ApiOperation({
+    summary: 'Gemini 流式聊天接口（SSE）',
+    description:
+      '使用 VertexAI Gemini 提供流式聊天服务，返回结构化响应数据，包含 token 统计信息',
+  })
   @ApiProduces('text/event-stream')
   @ApiBody({ type: ChatStreamRequestDto })
-  @ApiResponseDto(
-    String,
-    false,
-    '流式响应内容',
-    '你好！很高兴你来这里。有什么我可以帮忙的吗？',
-  )
+  @ApiResponseDto(StreamChatResponseDto, true, '流式响应数据')
   async handleChatStream(
     @Body() body: ChatStreamRequestDto,
     @Res() res: Response,
@@ -78,23 +78,36 @@ export class ChatController {
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders();
 
-      let fullText = '';
+      await this.chatService.geminiChatStream(body.message, (data) => {
+        // 发送结构化的响应数据
+        const response = {
+          code: 0,
+          msg: data.isComplete ? 'completed' : 'streaming',
+          data,
+        };
 
-      await this.chatService.chatStream(body.message, (chunk: string) => {
-        fullText += chunk;
-        res.write(
-          `data: ${JSON.stringify({
-            code: 0,
-            msg: 'success',
-            data: fullText,
-          })}\n\n`,
-        );
+        res.write(`data: ${JSON.stringify(response)}\n\n`);
+
+        // 如果是最终响应，结束连接
+        if (data.isComplete) {
+          res.write('data: [DONE]\n\n');
+        }
       });
 
       res.end();
     } catch (error) {
-      this.logger.error('流式聊天出错', error);
-      throw error;
+      this.logger.error('Gemini 流式聊天出错', error);
+
+      // 发送错误响应
+      const errorResponse = {
+        code: 1,
+        msg: error.message || '流式聊天失败',
+        data: null,
+      };
+
+      res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
+      res.write('data: [ERROR]\n\n');
+      res.end();
     }
   }
 
