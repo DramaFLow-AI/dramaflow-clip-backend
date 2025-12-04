@@ -15,6 +15,7 @@
   - 统一响应格式与异常处理（含 Token 统计）
   - 多 AI 服务集成（Gemini、DeepSeek、GPT）
   - 多种 TTS 选择（VertexAI TTS、Gemini TTS、MiniMax TTS）
+  - Git Hooks 管理（Husky + 代码质量检查）
   - 日志轮转（按日期自动分割）
   - 双 API 文档（Scalar + Swagger）
   - 多环境打包支持
@@ -121,6 +122,7 @@ logs/                            # 日志目录（自动生成）
 - **zod** - 环境变量校验
 - **winston** - 日志记录
 - **winston-daily-rotate-file** - 日志轮转
+- **husky** - Git Hooks 管理
 - **cross-env** - 跨平台环境变量
 - **undici** - HTTP 客户端与代理
 - **https-proxy-agent** - HTTPS 代理
@@ -203,11 +205,19 @@ pnpm run start:prod         # 启动生产环境
 
 ### 质量检查
 ```bash
-pnpm run lint               # ESLint 检查
+pnpm run lint               # ESLint 检查（自动修复）
+pnpm run lint:check          # ESLint 检查（仅检查）
 pnpm run format             # Prettier 格式化
+pnpm run format:check       # Prettier 格式检查
+pnpm run type-check         # TypeScript 编译检查
 pnpm run test               # 单元测试
 pnpm run test:e2e           # E2E 测试
 pnpm run test:cov           # 测试覆盖率
+```
+
+### Git Hooks（Husky）
+```bash
+pnpm run prepare           # 安装 husky hooks（自动执行）
 ```
 
 ### 数据库
@@ -367,7 +377,29 @@ logs/
 └── combined-2025-11-27.log   # 昨天的综合日志
 ```
 
-### 5. 代理支持
+### 5. Git Hooks 管理（Husky）🆕
+
+项目使用 Husky 管理 Git hooks，确保代码质量：
+
+**Pre-commit Hooks：**
+- ✅ ESLint 代码检查和自动修复
+- ✅ Prettier 代码格式检查
+- ✅ TypeScript 编译检查
+- 阻止不合规代码提交
+
+**Commit-msg Hooks：**
+- ✅ 强制 Conventional Commits 规范
+- ✅ 提交消息格式：`<type>(<scope>): <description>`
+- ✅ 类型：feat, fix, docs, style, refactor, test, chore 等
+
+**提交示例：**
+```bash
+feat(chat): add DeepSeek and GPT chat interfaces
+fix(tts): resolve VertexAI authentication issue
+docs(readme): update API documentation
+```
+
+### 6. 代理支持
 
 **全局代理：**
 - 支持所有 HTTP/HTTPS 请求
@@ -377,7 +409,7 @@ logs/
 - 为 Google Cloud API 单独配置代理
 - 支持认证请求代理
 
-### 6. 统一响应格式
+### 7. 统一响应格式
 
 **成功响应：**
 ```json
@@ -415,7 +447,7 @@ logs/
 }
 ```
 
-### 7. API 使用示例 🆕
+### 8. API 使用示例 🆕
 
 **聊天服务示例：**
 ```bash
