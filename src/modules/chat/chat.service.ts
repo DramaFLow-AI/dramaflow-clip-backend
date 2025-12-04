@@ -375,26 +375,33 @@ export class ChatService {
   }
 
   /**
-   * 生成语音并上传到 OSS
-   * @param text 要合成的文本
+   * 文本转语音生成服务
+   * 支持多种 TTS 提供商：Gemini TTS、MiniMax TTS
+   * @param text 要合成的文本内容
    * @param voiceName 语音名称 (Gemini: 'Kore' 等, MiniMax: voice_id)
    * @param outputFile 输出文件名
-   * @param provider 语音提供商 ('gemini' | 'minimax')
-   * @returns 音频文件的 URL
+   * @param provider TTS 提供商 ('gemini' | 'minimax')
+   * @returns 音频文件的访问 URL
    */
-  async generateVoice(
+  async generateVoiceFromText(
     text: string,
     voiceName = 'Kore',
     outputFile = 'out.wav',
     provider: string = 'gemini',
   ): Promise<string> {
+    this.logger.log(
+      `开始文本转语音，提供商: ${provider}, 文本长度: ${text.length}`,
+    );
+
     if (provider === 'gemini') {
       return this.generateGeminiVoice(text, voiceName, outputFile);
     } else if (provider === 'minimax') {
       return this.generateMinimaxVoice(text, voiceName, outputFile);
     }
 
-    throw new BadRequestException(`不支持的 TTS 提供商: ${provider}`);
+    throw new BadRequestException(
+      `不支持的 TTS 提供商: ${provider}，支持的提供商: gemini, minimax`,
+    );
   }
 
   /**

@@ -112,16 +112,37 @@ export class ChatController {
   }
 
   @Post('generate-voice')
-  @ApiOperation({ summary: '生成语音接口' })
+  @ApiOperation({
+    summary: '多提供商文本转语音接口',
+    description:
+      '支持多种 TTS 提供商的文字转语音服务，包括 Gemini TTS 和 MiniMax TTS',
+  })
   @ApiBody({ type: GenerateVoiceRequestDto })
-  @ApiResponseDto(String, false, '语音文件地址', 'https://www.baidu.com')
+  @ApiResponseDto(
+    String,
+    false,
+    '音频文件访问地址',
+    'https://example-bucket.oss-cn-shanghai.aliyuncs.com/audio/2025-12-05/output.wav',
+  )
   async handleGenerateVoice(@Body() body: GenerateVoiceRequestDto) {
     try {
-      const { text, voiceName, outputFile = 'out.wav' } = body;
+      const { text, voiceName, outputFile = 'out.wav', provider } = body;
 
-      return await this.chatService.generateVoice(text, voiceName, outputFile);
+      this.logger.log(
+        `文本转语音请求 - 提供商: ${provider}, 语音: ${voiceName}, 文本长度: ${text.length}`,
+      );
+
+      const audioUrl = await this.chatService.generateVoiceFromText(
+        text,
+        voiceName,
+        outputFile,
+        provider,
+      );
+
+      this.logger.log(`文本转语音成功，音频 URL: ${audioUrl}`);
+      return audioUrl;
     } catch (error) {
-      this.logger.error('生成语音失败', error);
+      this.logger.error('文本转语音失败', error);
       throw error;
     }
   }

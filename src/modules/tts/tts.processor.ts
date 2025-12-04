@@ -74,8 +74,8 @@ export class TtsTaskProcessor extends WorkerHost {
         data: { voice_name: voiceName, tts_model: provider },
       });
 
-      // 3. 调用 TTS 服务生成语音文件
-      const audioUrl = await this.chatService.generateVoice(
+      // 3. 调用文本转语音服务生成语音文件
+      const audioUrl = await this.chatService.generateVoiceFromText(
         text,
         voiceName,
         `${uuid()}.wav`,

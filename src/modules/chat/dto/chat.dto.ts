@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 /**
  * 普通聊天请求dto
@@ -28,17 +29,21 @@ export class ChatStreamRequestDto {
 }
 
 /**
- * 语音生成请求DTO
+ * 文本转语音请求DTO
  */
 export class GenerateVoiceRequestDto {
-  @ApiProperty({ example: '你好世界', description: '要转换为语音的文本' })
+  @ApiProperty({
+    example: '你好，欢迎使用文本转语音服务！',
+    description: '要转换为语音的文本内容',
+  })
   @IsNotEmpty()
   @IsString()
   text: string;
 
   @ApiProperty({
     example: 'Kore',
-    description: '音色名称',
+    description: '语音名称，支持的语音取决于提供商',
+    enum: ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede'], // Gemini 语音示例
     required: false,
   })
   @IsOptional()
@@ -47,12 +52,22 @@ export class GenerateVoiceRequestDto {
 
   @ApiProperty({
     example: 'out.wav',
-    description: '输出文件名',
+    description: '输出文件名（包含文件扩展名）',
     required: false,
   })
   @IsOptional()
   @IsString()
   outputFile?: string;
+
+  @ApiProperty({
+    description: 'TTS 提供商',
+    example: 'gemini',
+    enum: ['gemini', 'minimax'],
+    default: 'gemini',
+  })
+  @IsString()
+  @Transform(({ value }) => value.toLowerCase())
+  provider: string;
 }
 
 /**
