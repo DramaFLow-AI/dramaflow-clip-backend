@@ -20,7 +20,7 @@ import {
   TokenUsageDto,
   VertexAiTTSRequestDto,
   VertexAITSResponseDto,
-} from './DTO/chat.dto';
+} from './dto/chat.dto';
 
 /**
  * 聊天与语音生成服务
@@ -128,7 +128,7 @@ export class ChatService {
    * @param prompt 用户输入的文本
    * @returns 包含内容和token统计的响应对象
    */
-  async chat(prompt: string): Promise<ChatResponseDto> {
+  async geminiChat(prompt: string): Promise<ChatResponseDto> {
     try {
       const startTime = Date.now();
       const request = {

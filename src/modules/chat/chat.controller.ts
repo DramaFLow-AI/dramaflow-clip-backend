@@ -18,7 +18,7 @@ import {
   ChatResponseDto,
   VertexAiTTSRequestDto,
   VertexAITSResponseDto,
-} from './DTO/chat.dto';
+} from './dto/chat.dto';
 import { ApiResponseDto } from '../../common/decorators/api-response.decorator';
 
 @ApiTags('Chat 聊天')
@@ -47,7 +47,7 @@ export class ChatController {
   })
   async handleChat(@Body() body: ChatMessageParamsDto) {
     try {
-      const result = await this.chatService.chat(body.message);
+      const result = await this.chatService.geminiChat(body.message);
       if (!result) {
         throw new BadRequestException('生成回复失败');
       }
