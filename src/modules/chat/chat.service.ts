@@ -78,9 +78,7 @@ export class ChatService {
 
     // 初始化 Google GenAI (用于 Gemini TTS)
     this.genAI = new GoogleGenAI({
-      vertexai: true,
-      location: env.GCP_LOCATION,
-      project: env.GCP_PROJECT_ID,
+      apiKey: env.GEMINI_API_KEY,
     });
   }
 
