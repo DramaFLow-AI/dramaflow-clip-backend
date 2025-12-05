@@ -544,27 +544,38 @@ export class ChatService {
       this.logger.log(`开始 DeepSeek 聊天请求，prompt 长度: ${prompt.length}`);
 
       // 添加超时监控定时器
-      timeoutWarning = setTimeout(() => {
-        this.logger.warn(`DeepSeek 请求已进行 2 分钟，仍在等待响应... 当前 prompt 长度: ${prompt.length}`);
-      }, 2 * 60 * 1000); // 2分钟后警告
+      timeoutWarning = setTimeout(
+        () => {
+          this.logger.warn(
+            `DeepSeek 请求已进行 2 分钟，仍在等待响应... 当前 prompt 长度: ${prompt.length}`,
+          );
+        },
+        2 * 60 * 1000,
+      ); // 2分钟后警告
 
-      timeoutError = setTimeout(() => {
-        this.logger.error(`DeepSeek 请求超时，已等待 15 分钟...`);
-        // 这里不抛出错误，只记录日志，让 OpenAI 客户端处理超时
-      }, 15 * 60 * 1000); // 15分钟后错误日志
+      timeoutError = setTimeout(
+        () => {
+          this.logger.error(`DeepSeek 请求超时，已等待 15 分钟...`);
+          // 这里不抛出错误，只记录日志，让 OpenAI 客户端处理超时
+        },
+        15 * 60 * 1000,
+      ); // 15分钟后错误日志
 
       this.logger.log(`发送 DeepSeek API 请求，超时设置为 20 分钟...`);
 
-      const response = await this.openAIClient.chat.completions.create({
-        model: 'deepseek/deepseek-v3.2',
-        messages: [{ role: 'user', content: prompt }],
-        stream: false,
-        max_tokens: 65536, // DeepSeek 最大输出 token
-        // 添加温度参数以控制随机性
-        temperature: 0.7,
-      }, {
-        timeout: 1200000, // 20分钟超时（在选项中）
-      });
+      const response = await this.openAIClient.chat.completions.create(
+        {
+          model: 'deepseek/deepseek-v3.2',
+          messages: [{ role: 'user', content: prompt }],
+          stream: false,
+          max_tokens: 65536, // DeepSeek 最大输出 token
+          // 添加温度参数以控制随机性
+          temperature: 0.7,
+        },
+        {
+          timeout: 1200000, // 20分钟超时（在选项中）
+        },
+      );
 
       // 清除超时监控定时器
       if (timeoutWarning) clearTimeout(timeoutWarning);
@@ -620,7 +631,7 @@ export class ChatService {
         stack: error.stack,
         type: error.constructor.name,
         code: error.code,
-        duration: `${Date.now() - startTime}ms`
+        duration: `${Date.now() - startTime}ms`,
       });
 
       this.handleOpenAIError(error, 'DeepSeek');
@@ -725,7 +736,9 @@ export class ChatService {
 
         // 记录流式处理进度
         if (chunkCount % 50 === 0) {
-          this.logger.debug(`DeepSeek 流式处理进度: 已接收 ${chunkCount} 个 chunk，当前长度: ${fullText.length}`);
+          this.logger.debug(
+            `DeepSeek 流式处理进度: 已接收 ${chunkCount} 个 chunk，当前长度: ${fullText.length}`,
+          );
         }
 
         if (content) {
