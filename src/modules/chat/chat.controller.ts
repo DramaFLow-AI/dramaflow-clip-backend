@@ -258,7 +258,7 @@ export class GPTController {
       completionTokens: 28,
       totalTokens: 44,
     },
-    model: 'pa/gt-4p',
+    model: 'pa/gpt-5.1',
     responseTime: 900,
   })
   async handleGPTChat(@Body() body: OpenAIChatRequestDto) {

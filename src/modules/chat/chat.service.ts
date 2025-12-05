@@ -56,6 +56,8 @@ export class ChatService {
     this.openAIClient = new OpenAI({
       baseURL: 'https://api.ppinfra.com/openai',
       apiKey: env.OPENAI_KEY,
+      timeout: 1200000, // 设置 20 分钟超时 (适应 DeepSeek 深度思考的响应时间)
+      maxRetries: 2, // 添加重试机制
     });
 
     // 初始化 Text-to-Speech 客户端
@@ -97,7 +99,24 @@ export class ChatService {
       error: error.message,
       stack: error.stack,
       status: error.status,
+      code: error.code,
+      type: error.type,
+      cause: error.cause,
     });
+
+    // 检查超时错误
+    if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+      throw new BadRequestException(
+        `${serviceName} 请求超时，请检查网络连接或重试`,
+      );
+    }
+
+    // 检查连接错误
+    if (error.code === 'ECONNRESET' || error.code === 'ECONNABORTED') {
+      throw new BadRequestException(
+        `${serviceName} 连接中断，请重试或联系管理员`,
+      );
+    }
 
     // 根据不同的错误类型返回更具体的错误信息
     if (error.status === 401) {
@@ -114,6 +133,14 @@ export class ChatService {
       );
     } else if (error.status === 404) {
       throw new BadRequestException(`${serviceName} 模型不存在或名称错误`);
+    } else if (error.status === 503 || error.status === 502) {
+      throw new BadRequestException(
+        `${serviceName} 服务暂时不可用，请稍后重试`,
+      );
+    } else if (error.status === 400) {
+      throw new BadRequestException(
+        `${serviceName} 请求参数错误: ${error.message}`,
+      );
     } else {
       throw new BadRequestException(
         `${serviceName} 服务调用失败: ${error.message || '未知错误'}`,
@@ -509,15 +536,41 @@ export class ChatService {
    * @returns 包含内容和token统计的响应对象
    */
   async deepSeekChat(prompt: string): Promise<ChatResponseDto> {
+    const startTime = Date.now();
+    let timeoutWarning: NodeJS.Timeout | undefined;
+    let timeoutError: NodeJS.Timeout | undefined;
+
     try {
-      const startTime = Date.now();
       this.logger.log(`开始 DeepSeek 聊天请求，prompt 长度: ${prompt.length}`);
+
+      // 添加超时监控定时器
+      timeoutWarning = setTimeout(() => {
+        this.logger.warn(`DeepSeek 请求已进行 2 分钟，仍在等待响应... 当前 prompt 长度: ${prompt.length}`);
+      }, 2 * 60 * 1000); // 2分钟后警告
+
+      timeoutError = setTimeout(() => {
+        this.logger.error(`DeepSeek 请求超时，已等待 15 分钟...`);
+        // 这里不抛出错误，只记录日志，让 OpenAI 客户端处理超时
+      }, 15 * 60 * 1000); // 15分钟后错误日志
+
+      this.logger.log(`发送 DeepSeek API 请求，超时设置为 20 分钟...`);
 
       const response = await this.openAIClient.chat.completions.create({
         model: 'deepseek/deepseek-v3.2',
         messages: [{ role: 'user', content: prompt }],
         stream: false,
+        max_tokens: 65536, // DeepSeek 最大输出 token
+        // 添加温度参数以控制随机性
+        temperature: 0.7,
+      }, {
+        timeout: 1200000, // 20分钟超时（在选项中）
       });
+
+      // 清除超时监控定时器
+      if (timeoutWarning) clearTimeout(timeoutWarning);
+      if (timeoutError) clearTimeout(timeoutError);
+
+      this.logger.log(`DeepSeek API 响应已接收，开始处理...`);
 
       const content = response.choices?.[0]?.message?.content;
       if (!content || content.trim() === '') {
@@ -558,12 +611,24 @@ export class ChatService {
       );
       return result;
     } catch (error) {
+      // 确保清除定时器（如果在 try 块中出错）
+      if (timeoutWarning) clearTimeout(timeoutWarning);
+      if (timeoutError) clearTimeout(timeoutError);
+
+      this.logger.error('DeepSeek 请求异常', {
+        error: error.message,
+        stack: error.stack,
+        type: error.constructor.name,
+        code: error.code,
+        duration: `${Date.now() - startTime}ms`
+      });
+
       this.handleOpenAIError(error, 'DeepSeek');
     }
   }
 
   /**
-   * GPT 非流式聊天（使用第三方服务商模型：pa/gt-4p）
+   * GPT 非流式聊天（使用第三方服务商模型：pa/gpt-5.1）
    * @param prompt 用户输入的文本
    * @returns 包含内容和token统计的响应对象
    */
@@ -573,9 +638,10 @@ export class ChatService {
       this.logger.log(`开始 GPT 聊天请求，prompt 长度: ${prompt.length}`);
 
       const response = await this.openAIClient.chat.completions.create({
-        model: 'pa/gt-4p',
+        model: 'pa/gpt-5.1',
         messages: [{ role: 'user', content: prompt }],
         stream: false,
+        max_tokens: 128000, // GPT 最大输出 token
       });
 
       const content = response.choices?.[0]?.message?.content;
@@ -608,7 +674,7 @@ export class ChatService {
       const result: ChatResponseDto = {
         content,
         usage,
-        model: 'pa/gt-4p',
+        model: 'pa/gpt-5.1',
         responseTime,
       };
 
@@ -646,12 +712,22 @@ export class ChatService {
         model: 'deepseek/deepseek-v3.2',
         messages: [{ role: 'user', content: prompt }],
         stream: true,
+        max_tokens: 65536, // DeepSeek 最大输出 token
+        temperature: 0.7,
       });
 
       let fullText = '';
+      let chunkCount = 0;
 
       for await (const chunk of stream) {
+        chunkCount++;
         const content = chunk.choices?.[0]?.delta?.content;
+
+        // 记录流式处理进度
+        if (chunkCount % 50 === 0) {
+          this.logger.debug(`DeepSeek 流式处理进度: 已接收 ${chunkCount} 个 chunk，当前长度: ${fullText.length}`);
+        }
+
         if (content) {
           fullText += content;
 
@@ -719,9 +795,10 @@ export class ChatService {
       this.logger.log(`开始 GPT 流式聊天请求，prompt 长度: ${prompt.length}`);
 
       const stream = await this.openAIClient.chat.completions.create({
-        model: 'pa/gt-4p',
+        model: 'pa/gpt-5.1',
         messages: [{ role: 'user', content: prompt }],
         stream: true,
+        max_tokens: 128000, // GPT 最大输出 token
       });
 
       let fullText = '';
@@ -742,7 +819,7 @@ export class ChatService {
               completionTokens: Math.ceil(fullText.length / 4),
               totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
             },
-            model: 'pa/gt-4p',
+            model: 'pa/gpt-5.1',
             responseTime,
             isComplete: false, // 流式过程中都不是最终响应
           };
@@ -760,7 +837,7 @@ export class ChatService {
           completionTokens: Math.ceil(fullText.length / 4),
           totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
         },
-        model: 'pa/gt-4p',
+        model: 'pa/gpt-5.1',
         responseTime: finalTime - startTime,
         isComplete: true, // 标记为最终响应
       };

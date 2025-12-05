@@ -95,6 +95,15 @@ async function bootstrap() {
   // 设置接口前缀
   app.setGlobalPrefix('api');
 
-  await app.listen(port);
+  const server = await app.listen(port);
+
+  // 设置服务器超时时间 (25分钟，比 API 超时时间稍长)
+  server.timeout = 25 * 60 * 1000; // 25分钟
+  server.headersTimeout = 26 * 60 * 1000; // 26分钟
+  server.keepAliveTimeout = 20 * 1000; // 20秒
+
+  console.log(`服务器已启动，端口: ${port}`);
+  console.log(`服务器超时设置: ${server.timeout / 1000}秒`);
+  console.log(`服务器头超时设置: ${server.headersTimeout / 1000}秒`);
 }
-bootstrap();
+void bootstrap();
