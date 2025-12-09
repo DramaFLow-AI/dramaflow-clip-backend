@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * 统计信息 DTO
+ * 统计信息 dto
  */
 export class StatsDto {
   @ApiProperty({ description: '成功数量' })
@@ -18,7 +18,7 @@ export class StatsDto {
 }
 
 /**
- * 总体响应 DTO
+ * 总体响应 dto
  */
 export class OverallResponseDto {
   @ApiProperty({ description: '总体状态，例如 success/fail' })

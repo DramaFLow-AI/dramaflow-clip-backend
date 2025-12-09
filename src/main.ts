@@ -81,7 +81,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true, // 自动类型转换（比如字符串 "1" 转成数字 1）
-      whitelist: true, // 自动剔除 DTO 中不存在的字段
+      whitelist: true, // 自动剔除 dto 中不存在的字段
       forbidNonWhitelisted: true, // 如果传了不存在的字段就报错
     }),
   );
@@ -95,6 +95,15 @@ async function bootstrap() {
   // 设置接口前缀
   app.setGlobalPrefix('api');
 
-  await app.listen(port);
+  const server = await app.listen(port);
+
+  // 设置服务器超时时间 (25分钟，比 API 超时时间稍长)
+  server.timeout = 25 * 60 * 1000; // 25分钟
+  server.headersTimeout = 26 * 60 * 1000; // 26分钟
+  server.keepAliveTimeout = 20 * 1000; // 20秒
+
+  console.log(`服务器已启动，端口: ${port}`);
+  console.log(`服务器超时设置: ${server.timeout / 1000}秒`);
+  console.log(`服务器头超时设置: ${server.headersTimeout / 1000}秒`);
 }
-bootstrap();
+void bootstrap();

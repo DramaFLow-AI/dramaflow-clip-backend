@@ -20,7 +20,7 @@ import {
   TokenUsageDto,
   VertexAiTTSRequestDto,
   VertexAITSResponseDto,
-} from './DTO/chat.dto';
+} from './dto/chat.dto';
 
 /**
  * 聊天与语音生成服务
@@ -56,6 +56,8 @@ export class ChatService {
     this.openAIClient = new OpenAI({
       baseURL: 'https://api.ppinfra.com/openai',
       apiKey: env.OPENAI_KEY,
+      timeout: 1200000, // 设置 20 分钟超时 (适应 DeepSeek 深度思考的响应时间)
+      maxRetries: 2, // 添加重试机制
     });
 
     // 初始化 Text-to-Speech 客户端
@@ -78,9 +80,7 @@ export class ChatService {
 
     // 初始化 Google GenAI (用于 Gemini TTS)
     this.genAI = new GoogleGenAI({
-      vertexai: true,
-      location: env.GCP_LOCATION,
-      project: env.GCP_PROJECT_ID,
+      apiKey: env.GEMINI_API_KEY,
     });
   }
 
@@ -99,7 +99,24 @@ export class ChatService {
       error: error.message,
       stack: error.stack,
       status: error.status,
+      code: error.code,
+      type: error.type,
+      cause: error.cause,
     });
+
+    // 检查超时错误
+    if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+      throw new BadRequestException(
+        `${serviceName} 请求超时，请检查网络连接或重试`,
+      );
+    }
+
+    // 检查连接错误
+    if (error.code === 'ECONNRESET' || error.code === 'ECONNABORTED') {
+      throw new BadRequestException(
+        `${serviceName} 连接中断，请重试或联系管理员`,
+      );
+    }
 
     // 根据不同的错误类型返回更具体的错误信息
     if (error.status === 401) {
@@ -116,6 +133,14 @@ export class ChatService {
       );
     } else if (error.status === 404) {
       throw new BadRequestException(`${serviceName} 模型不存在或名称错误`);
+    } else if (error.status === 503 || error.status === 502) {
+      throw new BadRequestException(
+        `${serviceName} 服务暂时不可用，请稍后重试`,
+      );
+    } else if (error.status === 400) {
+      throw new BadRequestException(
+        `${serviceName} 请求参数错误: ${error.message}`,
+      );
     } else {
       throw new BadRequestException(
         `${serviceName} 服务调用失败: ${error.message || '未知错误'}`,
@@ -128,7 +153,7 @@ export class ChatService {
    * @param prompt 用户输入的文本
    * @returns 包含内容和token统计的响应对象
    */
-  async chat(prompt: string): Promise<ChatResponseDto> {
+  async geminiChat(prompt: string): Promise<ChatResponseDto> {
     try {
       const startTime = Date.now();
       const request = {
@@ -170,7 +195,9 @@ export class ChatService {
               '您的请求可能触发了版权内容检测，请修改后重试',
             );
           case FinishReason.MAX_TOKENS:
-            throw new BadRequestException('响应内容超出最大长度限制');
+            // 不再抛出错误，允许正常的响应被截断
+            this.logger.warn('响应因达到 token 限制而被截断，但内容仍然有效');
+            break;
           case FinishReason.OTHER:
           default:
             throw new BadRequestException(
@@ -237,50 +264,175 @@ export class ChatService {
   }
 
   /**
-   * 流式聊天 (使用 OpenAI/DeepSeek)
+   * Gemini 流式聊天
    * @param prompt 用户输入的文本
-   * @param onChunk 接收文本块的回调函数
+   * @param onChunk 接收结构化数据块的回调函数
    */
-  async chatStream(
+  async geminiChatStream(
     prompt: string,
-    onChunk: (text: string) => void,
+    onChunk: (data: {
+      content: string;
+      usage: TokenUsageDto;
+      model: string;
+      responseTime: number;
+      isComplete: boolean;
+    }) => void,
   ): Promise<void> {
-    const stream = await this.openAIClient.chat.completions.create({
-      model: 'deepseek/deepseek-v3.2',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 512,
-      stream: true,
-    });
+    try {
+      const startTime = Date.now();
+      const request = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 2048,
+          temperature: 0.7,
+        },
+      };
 
-    for await (const chunk of stream) {
-      const content = chunk.choices?.[0]?.delta?.content;
-      if (content) {
-        onChunk(content);
+      this.logger.log(
+        `开始 Gemini 流式聊天请求，prompt 长度: ${prompt.length}`,
+      );
+
+      // 使用 VertexAI 的流式 API
+      const result = await this.genModel.generateContentStream(request);
+
+      let fullText = '';
+      const usage = new TokenUsageDto();
+
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (chunkText) {
+          fullText += chunkText;
+
+          const currentTime = Date.now();
+          const responseTime = currentTime - startTime;
+
+          // 构建当前响应数据
+          const responseData = {
+            content: fullText,
+            usage: {
+              promptTokens: 0, // 流式中可能无法准确获取，暂时设为0
+              completionTokens: Math.ceil(fullText.length / 4), // 粗略估算
+              totalTokens: Math.ceil(fullText.length / 4),
+            },
+            model: 'gemini-2.5-flash',
+            responseTime,
+            isComplete: false, // 流式过程中都不是最终响应
+          };
+
+          onChunk(responseData);
+        }
       }
+
+      // 获取最终的 token 统计信息
+      const finalResponse = await result.response;
+      const usageMetadata = finalResponse?.usageMetadata;
+
+      if (usageMetadata) {
+        usage.promptTokens = usageMetadata.promptTokenCount || 0;
+        usage.completionTokens = usageMetadata.candidatesTokenCount || 0;
+        usage.totalTokens = usageMetadata.totalTokenCount || 0;
+      } else {
+        // 如果没有返回 token 统计，使用估算值
+        usage.promptTokens = Math.ceil(prompt.length / 4);
+        usage.completionTokens = Math.ceil(fullText.length / 4);
+        usage.totalTokens = usage.promptTokens + usage.completionTokens;
+        this.logger.warn('Gemini 流式未返回 token 使用统计，使用估算值');
+      }
+
+      // 检查最终结果的安全性
+      const candidates = finalResponse?.candidates;
+      if (candidates && candidates.length > 0) {
+        const firstCandidate = candidates[0];
+        const finishReason = firstCandidate?.finishReason;
+
+        if (finishReason && finishReason !== FinishReason.STOP) {
+          this.logger.warn(`Gemini 流式响应异常结束: ${finishReason}`);
+
+          switch (finishReason) {
+            case FinishReason.SAFETY:
+              throw new BadRequestException(
+                '您的请求因安全策略被阻止，请修改后重试',
+              );
+            case FinishReason.RECITATION:
+              throw new BadRequestException(
+                '您的请求可能触发了版权内容检测，请修改后重试',
+              );
+            case FinishReason.MAX_TOKENS:
+              // 不再抛出错误，允许正常的响应被截断
+              this.logger.warn(
+                '流式响应因达到 token 限制而被截断，但内容仍然有效',
+              );
+              break;
+            case FinishReason.OTHER:
+            default:
+              throw new BadRequestException(
+                `Gemini 响应异常: ${finishReason}，请稍后重试`,
+              );
+          }
+        }
+      }
+
+      // 发送最终的完整响应
+      const finalTime = Date.now();
+      const finalResponseData = {
+        content: fullText,
+        usage,
+        model: 'gemini-2.5-flash',
+        responseTime: finalTime - startTime,
+        isComplete: true, // 标记为最终响应
+      };
+
+      onChunk(finalResponseData);
+
+      this.logger.log(
+        `Gemini 流式聊天成功，总长度: ${fullText.length}, Token使用: ${usage.totalTokens}, 总耗时: ${finalTime - startTime}ms`,
+      );
+    } catch (error) {
+      // 如果已经是 BadRequestException，直接抛出
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      // 记录其他错误
+      this.logger.error('Gemini 流式聊天请求失败', {
+        error: error.message,
+        stack: error.stack,
+      });
+
+      throw new BadRequestException(
+        `Gemini 流式服务调用失败: ${error.message || '未知错误'}`,
+      );
     }
   }
 
   /**
-   * 生成语音并上传到 OSS
-   * @param text 要合成的文本
+   * 文本转语音生成服务
+   * 支持多种 TTS 提供商：Gemini TTS、MiniMax TTS
+   * @param text 要合成的文本内容
    * @param voiceName 语音名称 (Gemini: 'Kore' 等, MiniMax: voice_id)
    * @param outputFile 输出文件名
-   * @param provider 语音提供商 ('gemini' | 'minimax')
-   * @returns 音频文件的 URL
+   * @param provider TTS 提供商 ('gemini' | 'minimax')
+   * @returns 音频文件的访问 URL
    */
-  async generateVoice(
+  async generateVoiceFromText(
     text: string,
     voiceName = 'Kore',
     outputFile = 'out.wav',
     provider: string = 'gemini',
   ): Promise<string> {
+    this.logger.log(
+      `开始文本转语音，提供商: ${provider}, 文本长度: ${text.length}`,
+    );
+
     if (provider === 'gemini') {
       return this.generateGeminiVoice(text, voiceName, outputFile);
     } else if (provider === 'minimax') {
       return this.generateMinimaxVoice(text, voiceName, outputFile);
     }
 
-    throw new BadRequestException(`不支持的 TTS 提供商: ${provider}`);
+    throw new BadRequestException(
+      `不支持的 TTS 提供商: ${provider}，支持的提供商: gemini, minimax`,
+    );
   }
 
   /**
@@ -384,16 +536,52 @@ export class ChatService {
    * @returns 包含内容和token统计的响应对象
    */
   async deepSeekChat(prompt: string): Promise<ChatResponseDto> {
+    const startTime = Date.now();
+    let timeoutWarning: NodeJS.Timeout | undefined;
+    let timeoutError: NodeJS.Timeout | undefined;
+
     try {
-      const startTime = Date.now();
       this.logger.log(`开始 DeepSeek 聊天请求，prompt 长度: ${prompt.length}`);
 
-      const response = await this.openAIClient.chat.completions.create({
-        model: 'deepseek/deepseek-v3.2',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
-        stream: false,
-      });
+      // 添加超时监控定时器
+      timeoutWarning = setTimeout(
+        () => {
+          this.logger.warn(
+            `DeepSeek 请求已进行 2 分钟，仍在等待响应... 当前 prompt 长度: ${prompt.length}`,
+          );
+        },
+        2 * 60 * 1000,
+      ); // 2分钟后警告
+
+      timeoutError = setTimeout(
+        () => {
+          this.logger.error(`DeepSeek 请求超时，已等待 15 分钟...`);
+          // 这里不抛出错误，只记录日志，让 OpenAI 客户端处理超时
+        },
+        15 * 60 * 1000,
+      ); // 15分钟后错误日志
+
+      this.logger.log(`发送 DeepSeek API 请求，超时设置为 20 分钟...`);
+
+      const response = await this.openAIClient.chat.completions.create(
+        {
+          model: 'deepseek/deepseek-v3.2',
+          messages: [{ role: 'user', content: prompt }],
+          stream: false,
+          max_tokens: 65536, // DeepSeek 最大输出 token
+          // 添加温度参数以控制随机性
+          temperature: 0.7,
+        },
+        {
+          timeout: 1200000, // 20分钟超时（在选项中）
+        },
+      );
+
+      // 清除超时监控定时器
+      if (timeoutWarning) clearTimeout(timeoutWarning);
+      if (timeoutError) clearTimeout(timeoutError);
+
+      this.logger.log(`DeepSeek API 响应已接收，开始处理...`);
 
       const content = response.choices?.[0]?.message?.content;
       if (!content || content.trim() === '') {
@@ -434,12 +622,24 @@ export class ChatService {
       );
       return result;
     } catch (error) {
+      // 确保清除定时器（如果在 try 块中出错）
+      if (timeoutWarning) clearTimeout(timeoutWarning);
+      if (timeoutError) clearTimeout(timeoutError);
+
+      this.logger.error('DeepSeek 请求异常', {
+        error: error.message,
+        stack: error.stack,
+        type: error.constructor.name,
+        code: error.code,
+        duration: `${Date.now() - startTime}ms`,
+      });
+
       this.handleOpenAIError(error, 'DeepSeek');
     }
   }
 
   /**
-   * GPT 非流式聊天（使用第三方服务商模型：pa/gt-4p）
+   * GPT 非流式聊天（使用第三方服务商模型：pa/gpt-5.1）
    * @param prompt 用户输入的文本
    * @returns 包含内容和token统计的响应对象
    */
@@ -449,10 +649,10 @@ export class ChatService {
       this.logger.log(`开始 GPT 聊天请求，prompt 长度: ${prompt.length}`);
 
       const response = await this.openAIClient.chat.completions.create({
-        model: 'pa/gt-4p',
+        model: 'pa/gpt-5.1',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
         stream: false,
+        max_tokens: 128000, // GPT 最大输出 token
       });
 
       const content = response.choices?.[0]?.message?.content;
@@ -485,7 +685,7 @@ export class ChatService {
       const result: ChatResponseDto = {
         content,
         usage,
-        model: 'pa/gt-4p',
+        model: 'pa/gpt-5.1',
         responseTime,
       };
 
@@ -493,6 +693,173 @@ export class ChatService {
         `GPT 聊天成功，响应长度: ${content.length}, Token使用: ${usage.totalTokens}, 耗时: ${responseTime}ms`,
       );
       return result;
+    } catch (error) {
+      this.handleOpenAIError(error, 'GPT');
+    }
+  }
+
+  /**
+   * DeepSeek 流式聊天
+   * @param prompt 用户输入的文本
+   * @param onChunk 接收结构化数据块的回调函数
+   */
+  async deepSeekChatStream(
+    prompt: string,
+    onChunk: (data: {
+      content: string;
+      usage: TokenUsageDto;
+      model: string;
+      responseTime: number;
+      isComplete: boolean;
+    }) => void,
+  ): Promise<void> {
+    try {
+      const startTime = Date.now();
+      this.logger.log(
+        `开始 DeepSeek 流式聊天请求，prompt 长度: ${prompt.length}`,
+      );
+
+      const stream = await this.openAIClient.chat.completions.create({
+        model: 'deepseek/deepseek-v3.2',
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+        max_tokens: 65536, // DeepSeek 最大输出 token
+        temperature: 0.7,
+      });
+
+      let fullText = '';
+      let chunkCount = 0;
+
+      for await (const chunk of stream) {
+        chunkCount++;
+        const content = chunk.choices?.[0]?.delta?.content;
+
+        // 记录流式处理进度
+        if (chunkCount % 50 === 0) {
+          this.logger.debug(
+            `DeepSeek 流式处理进度: 已接收 ${chunkCount} 个 chunk，当前长度: ${fullText.length}`,
+          );
+        }
+
+        if (content) {
+          fullText += content;
+
+          const currentTime = Date.now();
+          const responseTime = currentTime - startTime;
+
+          // 构建当前响应数据
+          const responseData = {
+            content: fullText,
+            usage: {
+              promptTokens: Math.ceil(prompt.length / 4), // 粗略估算
+              completionTokens: Math.ceil(fullText.length / 4),
+              totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+            },
+            model: 'deepseek/deepseek-v3.2',
+            responseTime,
+            isComplete: false, // 流式过程中都不是最终响应
+          };
+
+          onChunk(responseData);
+        }
+      }
+
+      // 发送最终的完整响应
+      const finalTime = Date.now();
+      const finalResponseData = {
+        content: fullText,
+        usage: {
+          promptTokens: Math.ceil(prompt.length / 4),
+          completionTokens: Math.ceil(fullText.length / 4),
+          totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+        },
+        model: 'deepseek/deepseek-v3.2',
+        responseTime: finalTime - startTime,
+        isComplete: true, // 标记为最终响应
+      };
+
+      onChunk(finalResponseData);
+
+      this.logger.log(
+        `DeepSeek 流式聊天成功，总长度: ${fullText.length}, 总耗时: ${finalTime - startTime}ms`,
+      );
+    } catch (error) {
+      this.handleOpenAIError(error, 'DeepSeek');
+    }
+  }
+
+  /**
+   * GPT 流式聊天
+   * @param prompt 用户输入的文本
+   * @param onChunk 接收结构化数据块的回调函数
+   */
+  async gptChatStream(
+    prompt: string,
+    onChunk: (data: {
+      content: string;
+      usage: TokenUsageDto;
+      model: string;
+      responseTime: number;
+      isComplete: boolean;
+    }) => void,
+  ): Promise<void> {
+    try {
+      const startTime = Date.now();
+      this.logger.log(`开始 GPT 流式聊天请求，prompt 长度: ${prompt.length}`);
+
+      const stream = await this.openAIClient.chat.completions.create({
+        model: 'pa/gpt-5.1',
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+        max_tokens: 128000, // GPT 最大输出 token
+      });
+
+      let fullText = '';
+
+      for await (const chunk of stream) {
+        const content = chunk.choices?.[0]?.delta?.content;
+        if (content) {
+          fullText += content;
+
+          const currentTime = Date.now();
+          const responseTime = currentTime - startTime;
+
+          // 构建当前响应数据
+          const responseData = {
+            content: fullText,
+            usage: {
+              promptTokens: Math.ceil(prompt.length / 4), // 粗略估算
+              completionTokens: Math.ceil(fullText.length / 4),
+              totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+            },
+            model: 'pa/gpt-5.1',
+            responseTime,
+            isComplete: false, // 流式过程中都不是最终响应
+          };
+
+          onChunk(responseData);
+        }
+      }
+
+      // 发送最终的完整响应
+      const finalTime = Date.now();
+      const finalResponseData = {
+        content: fullText,
+        usage: {
+          promptTokens: Math.ceil(prompt.length / 4),
+          completionTokens: Math.ceil(fullText.length / 4),
+          totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
+        },
+        model: 'pa/gpt-5.1',
+        responseTime: finalTime - startTime,
+        isComplete: true, // 标记为最终响应
+      };
+
+      onChunk(finalResponseData);
+
+      this.logger.log(
+        `GPT 流式聊天成功，总长度: ${fullText.length}, 总耗时: ${finalTime - startTime}ms`,
+      );
     } catch (error) {
       this.handleOpenAIError(error, 'GPT');
     }

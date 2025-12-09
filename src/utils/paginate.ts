@@ -58,7 +58,7 @@ interface PageOptions {
  *   prisma.user,
  *   { where: { status: 1 }, orderBy: { id: 'desc' } },
  *   { pageNum: 1, pageSize: 10 },
- *   row => ({ id: row.id, name: row.username }) // 转换为 DTO
+ *   row => ({ id: row.id, name: row.username }) // 转换为 dto
  * );
  *
  * console.log(result.list); // UserDTO[]

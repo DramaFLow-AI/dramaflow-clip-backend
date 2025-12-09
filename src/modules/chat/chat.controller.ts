@@ -16,12 +16,13 @@ import {
   GenerateVoiceRequestDto,
   OpenAIChatRequestDto,
   ChatResponseDto,
+  StreamChatResponseDto,
   VertexAiTTSRequestDto,
   VertexAITSResponseDto,
-} from './DTO/chat.dto';
+} from './dto/chat.dto';
 import { ApiResponseDto } from '../../common/decorators/api-response.decorator';
 
-@ApiTags('Chat 聊天')
+@ApiTags('Gemini 聊天与语音')
 @Controller('gemini')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
@@ -47,7 +48,7 @@ export class ChatController {
   })
   async handleChat(@Body() body: ChatMessageParamsDto) {
     try {
-      const result = await this.chatService.chat(body.message);
+      const result = await this.chatService.geminiChat(body.message);
       if (!result) {
         throw new BadRequestException('生成回复失败');
       }
@@ -59,15 +60,14 @@ export class ChatController {
   }
 
   @Post('stream')
-  @ApiOperation({ summary: 'Gemini 流式聊天接口（SSE）' })
+  @ApiOperation({
+    summary: 'Gemini 流式聊天接口（SSE）',
+    description:
+      '使用 VertexAI Gemini 提供流式聊天服务，返回结构化响应数据，包含 token 统计信息',
+  })
   @ApiProduces('text/event-stream')
   @ApiBody({ type: ChatStreamRequestDto })
-  @ApiResponseDto(
-    String,
-    false,
-    '流式响应内容',
-    '你好！很高兴你来这里。有什么我可以帮忙的吗？',
-  )
+  @ApiResponseDto(StreamChatResponseDto, true, '流式响应数据')
   async handleChatStream(
     @Body() body: ChatStreamRequestDto,
     @Res() res: Response,
@@ -78,37 +78,71 @@ export class ChatController {
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders();
 
-      let fullText = '';
+      await this.chatService.geminiChatStream(body.message, (data) => {
+        // 发送结构化的响应数据
+        const response = {
+          code: 0,
+          msg: data.isComplete ? 'completed' : 'streaming',
+          data,
+        };
 
-      await this.chatService.chatStream(body.message, (chunk: string) => {
-        fullText += chunk;
-        res.write(
-          `data: ${JSON.stringify({
-            code: 0,
-            msg: 'success',
-            data: fullText,
-          })}\n\n`,
-        );
+        res.write(`data: ${JSON.stringify(response)}\n\n`);
+
+        // 如果是最终响应，结束连接
+        if (data.isComplete) {
+          res.write('data: [DONE]\n\n');
+        }
       });
 
       res.end();
     } catch (error) {
-      this.logger.error('流式聊天出错', error);
-      throw error;
+      this.logger.error('Gemini 流式聊天出错', error);
+
+      // 发送错误响应
+      const errorResponse = {
+        code: 1,
+        msg: error.message || '流式聊天失败',
+        data: null,
+      };
+
+      res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
+      res.write('data: [ERROR]\n\n');
+      res.end();
     }
   }
 
   @Post('generate-voice')
-  @ApiOperation({ summary: '生成语音接口' })
+  @ApiOperation({
+    summary: '多提供商文本转语音接口',
+    description:
+      '支持多种 TTS 提供商的文字转语音服务，包括 Gemini TTS 和 MiniMax TTS',
+  })
   @ApiBody({ type: GenerateVoiceRequestDto })
-  @ApiResponseDto(String, false, '语音文件地址', 'https://www.baidu.com')
+  @ApiResponseDto(
+    String,
+    false,
+    '音频文件访问地址',
+    'https://example-bucket.oss-cn-shanghai.aliyuncs.com/audio/2025-12-05/output.wav',
+  )
   async handleGenerateVoice(@Body() body: GenerateVoiceRequestDto) {
     try {
-      const { text, voiceName, outputFile = 'out.wav' } = body;
+      const { text, voiceName, outputFile = 'out.wav', provider } = body;
 
-      return await this.chatService.generateVoice(text, voiceName, outputFile);
+      this.logger.log(
+        `文本转语音请求 - 提供商: ${provider}, 语音: ${voiceName}, 文本长度: ${text.length}`,
+      );
+
+      const audioUrl = await this.chatService.generateVoiceFromText(
+        text,
+        voiceName,
+        outputFile,
+        provider,
+      );
+
+      this.logger.log(`文本转语音成功，音频 URL: ${audioUrl}`);
+      return audioUrl;
     } catch (error) {
-      this.logger.error('生成语音失败', error);
+      this.logger.error('文本转语音失败', error);
       throw error;
     }
   }
@@ -150,6 +184,58 @@ export class DeepSeekController {
       throw error;
     }
   }
+
+  @Post('stream')
+  @ApiOperation({
+    summary: 'DeepSeek 流式聊天接口（SSE）',
+    description:
+      '使用 DeepSeek 模型提供流式聊天服务，返回结构化响应数据，包含 token 统计信息',
+  })
+  @ApiProduces('text/event-stream')
+  @ApiBody({ type: ChatStreamRequestDto })
+  @ApiResponseDto(StreamChatResponseDto, true, 'DeepSeek 流式响应数据')
+  async handleDeepSeekStream(
+    @Body() body: ChatStreamRequestDto,
+    @Res() res: Response,
+  ) {
+    try {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      await this.chatService.deepSeekChatStream(body.message, (data) => {
+        // 发送结构化的响应数据
+        const response = {
+          code: 0,
+          msg: data.isComplete ? 'completed' : 'streaming',
+          data,
+        };
+
+        res.write(`data: ${JSON.stringify(response)}\n\n`);
+
+        // 如果是最终响应，结束连接
+        if (data.isComplete) {
+          res.write('data: [DONE]\n\n');
+        }
+      });
+
+      res.end();
+    } catch (error) {
+      this.logger.error('DeepSeek 流式聊天出错', error);
+
+      // 发送错误响应
+      const errorResponse = {
+        code: 1,
+        msg: error.message || 'DeepSeek 流式聊天失败',
+        data: null,
+      };
+
+      res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
+      res.write('data: [ERROR]\n\n');
+      res.end();
+    }
+  }
 }
 
 @ApiTags('GPT 聊天')
@@ -172,7 +258,7 @@ export class GPTController {
       completionTokens: 28,
       totalTokens: 44,
     },
-    model: 'pa/gt-4p',
+    model: 'pa/gpt-5.1',
     responseTime: 900,
   })
   async handleGPTChat(@Body() body: OpenAIChatRequestDto) {
@@ -185,6 +271,58 @@ export class GPTController {
     } catch (error) {
       this.logger.error('GPT 聊天出错', error);
       throw error;
+    }
+  }
+
+  @Post('stream')
+  @ApiOperation({
+    summary: 'GPT 流式聊天接口（SSE）',
+    description:
+      '使用 GPT 模型提供流式聊天服务，返回结构化响应数据，包含 token 统计信息',
+  })
+  @ApiProduces('text/event-stream')
+  @ApiBody({ type: ChatStreamRequestDto })
+  @ApiResponseDto(StreamChatResponseDto, true, 'GPT 流式响应数据')
+  async handleGPTStream(
+    @Body() body: ChatStreamRequestDto,
+    @Res() res: Response,
+  ) {
+    try {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      await this.chatService.gptChatStream(body.message, (data) => {
+        // 发送结构化的响应数据
+        const response = {
+          code: 0,
+          msg: data.isComplete ? 'completed' : 'streaming',
+          data,
+        };
+
+        res.write(`data: ${JSON.stringify(response)}\n\n`);
+
+        // 如果是最终响应，结束连接
+        if (data.isComplete) {
+          res.write('data: [DONE]\n\n');
+        }
+      });
+
+      res.end();
+    } catch (error) {
+      this.logger.error('GPT 流式聊天出错', error);
+
+      // 发送错误响应
+      const errorResponse = {
+        code: 1,
+        msg: error.message || 'GPT 流式聊天失败',
+        data: null,
+      };
+
+      res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
+      res.write('data: [ERROR]\n\n');
+      res.end();
     }
   }
 }

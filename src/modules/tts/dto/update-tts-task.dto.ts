@@ -9,7 +9,7 @@ import {
 import { Type } from 'class-transformer';
 import { sys_tts_task_segment_key } from '@prisma/client';
 
-// 单个更新项 DTO
+// 单个更新项 dto
 export class UpdateTtsTaskItemDto {
   @ApiProperty({ description: '方案中的片段索引（从0开始）' })
   @IsInt()
@@ -25,7 +25,7 @@ export class UpdateTtsTaskItemDto {
   newText: string;
 }
 
-// 批量更新 DTO
+// 批量更新 dto
 export class UpdateTtsTasksDto {
   @ApiProperty({ description: '方案 ID' })
   @IsInt()
