@@ -75,7 +75,7 @@ export class ChatService {
 
     // 获取 Gemini 模型
     this.genModel = this.vertexAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
     });
 
     // 初始化 Google GenAI (用于 Gemini TTS)
@@ -237,7 +237,7 @@ export class ChatService {
       const result: ChatResponseDto = {
         content: text,
         usage,
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         responseTime,
       };
 
@@ -314,7 +314,7 @@ export class ChatService {
               completionTokens: Math.ceil(fullText.length / 4), // 粗略估算
               totalTokens: Math.ceil(fullText.length / 4),
             },
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-pro',
             responseTime,
             isComplete: false, // 流式过程中都不是最终响应
           };
@@ -377,7 +377,7 @@ export class ChatService {
       const finalResponseData = {
         content: fullText,
         usage,
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         responseTime: finalTime - startTime,
         isComplete: true, // 标记为最终响应
       };
