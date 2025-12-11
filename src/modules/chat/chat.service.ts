@@ -565,7 +565,7 @@ export class ChatService {
 
       const response = await this.openAIClient.chat.completions.create(
         {
-          model: 'deepseek/deepseek-v3.2',
+          model: 'deepseek/deepseek-v3.2-exp',
           messages: [{ role: 'user', content: prompt }],
           stream: false,
           max_tokens: 65536, // DeepSeek 最大输出 token
@@ -613,7 +613,7 @@ export class ChatService {
       const result: ChatResponseDto = {
         content,
         usage,
-        model: 'deepseek/deepseek-v3.2',
+        model: 'deepseek/deepseek-v3.2-exp',
         responseTime,
       };
 
@@ -625,6 +625,12 @@ export class ChatService {
       // 确保清除定时器（如果在 try 块中出错）
       if (timeoutWarning) clearTimeout(timeoutWarning);
       if (timeoutError) clearTimeout(timeoutError);
+
+      console.error('DeepSeek error:', {
+        status: error.status,
+        response: error.response?.data,
+        headers: error.response?.headers,
+      });
 
       this.logger.error('DeepSeek 请求异常', {
         error: error.message,
@@ -720,7 +726,7 @@ export class ChatService {
       );
 
       const stream = await this.openAIClient.chat.completions.create({
-        model: 'deepseek/deepseek-v3.2',
+        model: 'deepseek/deepseek-v3.2-exp',
         messages: [{ role: 'user', content: prompt }],
         stream: true,
         max_tokens: 65536, // DeepSeek 最大输出 token
@@ -755,7 +761,7 @@ export class ChatService {
               completionTokens: Math.ceil(fullText.length / 4),
               totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
             },
-            model: 'deepseek/deepseek-v3.2',
+            model: 'deepseek/deepseek-v3.2-exp',
             responseTime,
             isComplete: false, // 流式过程中都不是最终响应
           };
@@ -773,7 +779,7 @@ export class ChatService {
           completionTokens: Math.ceil(fullText.length / 4),
           totalTokens: Math.ceil((prompt.length + fullText.length) / 4),
         },
-        model: 'deepseek/deepseek-v3.2',
+        model: 'deepseek/deepseek-v3.2-exp',
         responseTime: finalTime - startTime,
         isComplete: true, // 标记为最终响应
       };
